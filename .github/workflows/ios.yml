@@ -1,0 +1,6 @@
+runs-on: macos-latest
+steps:
+  - uses: actions/checkout@v4
+  - run: rustup target add aarch64-apple-ios
+  - run: cargo install dioxus-cli
+  - run: dx build --platform ios --release

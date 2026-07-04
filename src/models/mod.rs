@@ -1,12 +1,14 @@
 pub mod category;
+pub mod family;
 pub mod holding;
 pub mod member;
 pub mod transaction;
 pub mod wallet;
 
 pub use category::{Category, NewCategory};
+pub use family::{Family, NewFamily};
 pub use holding::{AssetType, Holding };
-pub use member::Member;
+pub use member::{Member, NewMember};
 pub use transaction::{IncomeType, NewTransaction, Transaction, TransactionType};
 pub use wallet::{Currency, NewWallet, Wallet, WalletType};
 

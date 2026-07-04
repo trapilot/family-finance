@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use crate::views::{
     dashboard::Dashboard,
     reports::Reports,
+    members::Members,
     settings::Settings,
     transactions::Transactions,
     wallets::Wallets,
@@ -38,6 +39,7 @@ pub enum Tab {
     Dashboard,
     Transactions,
     Wallets,
+    Members,
     Reports,
     Settings,
 }
@@ -61,6 +63,7 @@ pub fn App() -> Element {
                     Tab::Dashboard    => rsx! { Dashboard {} },
                     Tab::Transactions => rsx! { Transactions {} },
                     Tab::Wallets      => rsx! { Wallets {} },
+                    Tab::Members      => rsx! { Members {} },
                     Tab::Reports      => rsx! { Reports {} },
                     Tab::Settings     => rsx! { Settings {} },
                 }
@@ -78,6 +81,7 @@ fn BottomTabBar(active_tab: Signal<Tab>) -> Element {
         (Tab::Dashboard,    "🏠", "Overview"),
         (Tab::Transactions, "💳", "Txns"),
         (Tab::Wallets,      "👛", "Wallets"),
+        (Tab::Members,      "👨‍👩‍👧", "Family"),
         (Tab::Reports,      "📊", "Reports"),
         (Tab::Settings,     "⚙️",  "Settings"),
     ];
@@ -93,10 +97,10 @@ fn BottomTabBar(active_tab: Signal<Tab>) -> Element {
                         button {
                             style: "flex:1; border:none; background:transparent; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 0;",
                             onclick: move |_| { active_tab.set(tab_clone.clone()); },
-                            span { style: "font-size:22px; line-height:1;", "{icon}" }
+                            span { style: "font-size:20px; line-height:1;", "{icon}" }
                             span {
-                                style: if is_active { "font-size:10px; font-weight:700; color:#6366f1;" }
-                                       else { "font-size:10px; color:#9ca3af;" },
+                                style: if is_active { "font-size:9px; font-weight:700; color:#6366f1;" }
+                                       else { "font-size:9px; color:#9ca3af;" },
                                 "{label}"
                             }
                         }

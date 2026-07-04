@@ -3,6 +3,7 @@ pub mod reports;
 pub mod settings;
 pub mod transactions;
 pub mod wallets;
+pub mod members;
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
 

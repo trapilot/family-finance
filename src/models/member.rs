@@ -72,6 +72,7 @@ impl FromStr for Gender {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Member {
     pub id:             String,
+    pub family_id:      Option<String>,
     pub full_name:      String,
     pub birth_date:     Option<i64>,
     pub gender:         Option<Gender>,
@@ -81,17 +82,23 @@ pub struct Member {
     pub id_issue_place: Option<String>,
     pub address:        Option<String>,
     pub role:           MemberRole,
+    pub avatar_emoji:   Option<String>,
     pub note:           Option<String>,
     pub created_at:     i64,
 }
 
 impl Member {
+    pub fn avatar(&self) -> String {
+        self.avatar_emoji.as_deref().unwrap_or("👤").to_string()
+    }
+
     pub fn from_row(row: &Row) -> rusqlite::Result<Self> {
         let role_str: String = row.get("role")?;
         let gender_str: Option<String> = row.get("gender")?;
 
         Ok(Member {
             id:             row.get("id")?,
+            family_id:      row.get("family_id")?,
             full_name:      row.get("full_name")?,
             birth_date:     row.get("birth_date")?,
             gender:         gender_str
@@ -105,6 +112,7 @@ impl Member {
             id_issue_place: row.get("id_issue_place")?,
             address:        row.get("address")?,
             role:           MemberRole::from_str(&role_str).map_err(to_sqlite_err)?,
+            avatar_emoji:   row.get("avatar_emoji")?,
             note:           row.get("note")?,
             created_at:     row.get("created_at")?,
         })
@@ -115,6 +123,7 @@ impl Member {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NewMember {
+    pub family_id:      Option<String>,
     pub full_name:      String,
     pub birth_date:     Option<i64>,
     pub gender:         Option<Gender>,
@@ -124,5 +133,6 @@ pub struct NewMember {
     pub id_issue_place: Option<String>,
     pub address:        Option<String>,
     pub role:           MemberRole,
+    pub avatar_emoji:   Option<String>,
     pub note:           Option<String>,
 }

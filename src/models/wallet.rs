@@ -46,6 +46,7 @@ impl FromStr for Currency {
 pub enum WalletType {
     Cash,
     Bank,
+    Loan,
     EWallet,
     Investment,
 }
@@ -55,6 +56,7 @@ impl fmt::Display for WalletType {
         match self {
             WalletType::Cash       => write!(f, "cash"),
             WalletType::Bank       => write!(f, "bank"),
+            WalletType::Loan       => write!(f, "loan"),
             WalletType::EWallet    => write!(f, "e_wallet"),
             WalletType::Investment => write!(f, "investment"),
         }
@@ -67,6 +69,7 @@ impl FromStr for WalletType {
         match s {
             "cash"       => Ok(WalletType::Cash),
             "bank"       => Ok(WalletType::Bank),
+            "loan"       => Ok(WalletType::Loan),
             "e_wallet"   => Ok(WalletType::EWallet),
             "investment" => Ok(WalletType::Investment),
             _            => Err(AppError::Parse(format!("Unknown wallet type: {s}"))),

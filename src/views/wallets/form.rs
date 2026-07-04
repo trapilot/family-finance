@@ -101,7 +101,7 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
             input {
                 style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;",
                 r#type: "text",
-                placeholder: "e.g. Vietcombank",
+                placeholder: "e.g. HSBC",
                 value: "{name.read()}",
                 oninput: move |e| { name.set(e.value()); },
             }
@@ -113,6 +113,7 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
                 for (wt, label, icon_str) in [
                     (WalletType::Cash,       "Cash",       "💵"),
                     (WalletType::Bank,       "Bank",       "🏦"),
+                    (WalletType::Loan,       "Loan",       "🤝"),
                     (WalletType::EWallet,    "E-Wallet",   "📱"),
                     (WalletType::Investment, "Investment", "📈"),
                 ] {
@@ -175,7 +176,7 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
                 input {
                     style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; background:#fff;",
                     r#type: "text",
-                    placeholder: "e.g. SSI, VPS, Binance",
+                    placeholder: "e.g. HSBC, VPS, Binance, OKX",
                     value: "{broker.read()}",
                     oninput: move |e| { broker.set(e.value()); },
                 }

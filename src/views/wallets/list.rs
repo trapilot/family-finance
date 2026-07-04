@@ -133,6 +133,7 @@ fn WalletCard(
     let (type_icon, type_color) = match wallet.wallet_type {
         WalletType::Cash       => ("💵", "#10b981"),
         WalletType::Bank       => ("🏦", "#6366f1"),
+        WalletType::Loan       => ("🤝", "#bb3baaff"),
         WalletType::EWallet    => ("📱", "#f59e0b"),
         WalletType::Investment => ("📈", "#8b5cf6"),
     };

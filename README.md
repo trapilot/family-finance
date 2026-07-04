@@ -2,7 +2,7 @@
 
 A local-first personal and family finance management app built with Rust, Dioxus, and SQLite.
 
-The application is designed for users who want full control over their financial data without relying on cloud services. All data is stored locally and can be backed up using a portable `.ffbackup` file.
+The application is designed for users who want full control over their financial data without relying on cloud services. All data is stored locally and can be backed up using a portable `.bk` file.
 
 ---
 
@@ -233,18 +233,24 @@ family-finance/
 │   │   ├── transaction.rs
 │   │   ├── category.rs
 │   │   ├── holding.rs
+│   │   ├── family.rs
 │   │   └── member.rs
 │   ├── repository/
 │   │   ├── wallet_repo.rs
 │   │   ├── transaction_repo.rs
 │   │   ├── category_repo.rs
+│   │   ├── member_repo.rs
+│   │   ├── family_repo.rs
 │   │   └── holding_repo.rs
 │   ├── services/
 │   │   ├── transaction_service.rs
 │   │   ├── holding_service.rs
+│   │   ├── member_service.rs
+│   │   ├── family_service.rs
 │   │   └── report_service.rs
 │   └── views/
 │       ├── dashboard.rs
+│       ├── members/
 │       ├── transactions/
 │       ├── wallets/
 │       ├── reports/
@@ -257,7 +263,7 @@ family-finance/
 
 ## Backup Format
 
-The application supports exporting and importing a portable backup file with the `.ffbackup` extension.
+The application supports exporting and importing a portable backup file with the `.bk` extension.
 
 Example:
 
@@ -269,6 +275,7 @@ Example:
   "holdings": [],
   "categories": [],
   "transactions": [],
+  "families": [],
   "members": [],
   "settings": {}
 }
@@ -292,7 +299,6 @@ Example:
 
 * Family member profiles
 * Household information
-* Shared family finance records
 
 ---
 

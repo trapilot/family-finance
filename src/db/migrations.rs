@@ -1,13 +1,18 @@
 use rusqlite::{Connection, Result};
 
-const SCHEMA_VERSION: u32 = 1;
-
 pub fn run(conn: &Connection) -> Result<()> {
     let version = get_version(conn)?;
-    if version < SCHEMA_VERSION {
-        create_tables(conn)?;
-        create_indexes(conn)?;
-        set_version(conn, SCHEMA_VERSION)?;
+    if version < 1 {
+        migrate_v1(conn)?;
+        set_version(conn, 1)?;
+    }
+    if version < 2 {
+        migrate_v2(conn)?;
+        set_version(conn, 2)?;
+    }
+    if version < 3 {
+        migrate_v3(conn)?;
+        set_version(conn, 3)?;
     }
     Ok(())
 }
@@ -20,8 +25,10 @@ fn set_version(conn: &Connection, version: u32) -> Result<()> {
     conn.execute_batch(&format!("PRAGMA user_version = {version}"))
 }
 
-fn create_tables(conn: &Connection) -> Result<()> {
-    conn.execute_batch("
+// ─── V1 — initial schema ──────────────────────────────────────────────────────
+
+fn migrate_v1(conn: &Connection) -> Result<()> {
+    let _ = conn.execute_batch("
         PRAGMA journal_mode = WAL;
         PRAGMA foreign_keys = ON;
 
@@ -84,6 +91,27 @@ fn create_tables(conn: &Connection) -> Result<()> {
             created_at     INTEGER NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+    ");
+    
+    let _ = conn.execute_batch("
+        CREATE INDEX IF NOT EXISTS idx_txn_date      ON transactions(txn_date DESC);
+        CREATE INDEX IF NOT EXISTS idx_txn_wallet    ON transactions(wallet_id);
+        CREATE INDEX IF NOT EXISTS idx_txn_category  ON transactions(category_id);
+        CREATE INDEX IF NOT EXISTS idx_txn_type      ON transactions(txn_type);
+        CREATE INDEX IF NOT EXISTS idx_holding_wallet ON holdings(wallet_id);
+    ");
+
+    Ok(())
+}
+
+// ─── V2 — Phase 2: add members ────────
+
+fn migrate_v2(conn: &Connection) -> Result<()> {
+    let _ = conn.execute_batch("
         CREATE TABLE IF NOT EXISTS members (
             id             TEXT PRIMARY KEY,
             full_name      TEXT NOT NULL,
@@ -95,23 +123,31 @@ fn create_tables(conn: &Connection) -> Result<()> {
             id_issue_place TEXT,
             address        TEXT,
             role           TEXT NOT NULL DEFAULT 'member',
+            avatar_emoji   TEXT,
+            note           TEXT,
+            created_at     INTEGER NOT NULL
+        );
+    ");
+
+    Ok(())
+}
+
+// ─── V3 — Phase 3: add families ────────
+
+fn migrate_v3(conn: &Connection) -> Result<()> {
+    let _ = conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS families (
+            id             TEXT PRIMARY KEY,
+            name           TEXT NOT NULL,
+            common_address TEXT,
             note           TEXT,
             created_at     INTEGER NOT NULL
         );
 
-        CREATE TABLE IF NOT EXISTS settings (
-            key   TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        );
-    ")
-}
+        ALTER TABLE members ADD COLUMN family_id TEXT REFERENCES families(id);
 
-fn create_indexes(conn: &Connection) -> Result<()> {
-    conn.execute_batch("
-        CREATE INDEX IF NOT EXISTS idx_txn_date     ON transactions(txn_date DESC);
-        CREATE INDEX IF NOT EXISTS idx_txn_wallet   ON transactions(wallet_id);
-        CREATE INDEX IF NOT EXISTS idx_txn_category ON transactions(category_id);
-        CREATE INDEX IF NOT EXISTS idx_txn_type     ON transactions(txn_type);
-        CREATE INDEX IF NOT EXISTS idx_holding_wallet ON holdings(wallet_id);
-    ")
+        CREATE INDEX IF NOT EXISTS idx_member_family ON members(family_id);
+    ");
+
+    Ok(())
 }

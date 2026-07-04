@@ -25,6 +25,9 @@ pub enum AppError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Bcrypt error: {0}")]
+    Bcrypt(#[from] bcrypt::BcryptError),
 }
 
 pub type Result<T> = std::result::Result<T, AppError>;

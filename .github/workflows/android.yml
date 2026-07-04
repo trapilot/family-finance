@@ -1,0 +1,41 @@
+name: Build Android
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install Java (Required for Android build)
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Install Rust
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Install Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # Add Android target (Rust)
+      - name: Add Android target
+        run: rustup target add aarch64-linux-android
+
+      # Install Dioxus CLI
+      - name: Install Dioxus CLI
+        run: cargo install dioxus-cli --locked
+
+      # Build Android
+      - name: Build APK
+        run: dx build --platform android --release

@@ -1,6 +1,24 @@
-runs-on: macos-latest
-steps:
-  - uses: actions/checkout@v4
-  - run: rustup target add aarch64-apple-ios
-  - run: cargo install dioxus-cli
-  - run: dx build --platform ios --release
+name: Build iOS
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - name: Install Dioxus CLI
+        run: cargo install dioxus-cli --locked
+
+      - name: Build
+        run: dx build --platform ios --release

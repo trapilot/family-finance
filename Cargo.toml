@@ -19,6 +19,7 @@ rust_decimal  = { version = "1", features = ["serde-float"] }
 once_cell     = "1"
 thiserror     = "1"
 time          = "=0.3.36"
+bcrypt        = "0.15"
  
 [profile.release]
 opt-level = 3

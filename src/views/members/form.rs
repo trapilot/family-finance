@@ -249,7 +249,7 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
                 }
             }
             div { style: "font-size:11px; color:#9ca3af; margin-top:-8px;",
-                "💡 Đây là địa chỉ bạn sẽ copy khi đặt xe tới nhà người này."
+                "💡 This is the address you will copy when ordering a ride to this person's house."
             }
 
             // ── Date of birth ──

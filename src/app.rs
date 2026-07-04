@@ -9,6 +9,7 @@ use crate::views::{
     settings::Settings,
     transactions::Transactions,
     wallets::Wallets,
+    pin::{PinSetup, PinUnlock},
 };
 
 // ─── AppState ─────────────────────────────────────────────────────────────────
@@ -50,8 +51,50 @@ pub enum Tab {
 pub fn App() -> Element {
     let db = crate::db::get();
     let state = AppState::new(db);
-    provide_context(state);
+    provide_context(state.clone());
 
+    let mut refresh_trigger = use_signal(|| 0);
+
+    let is_pin_set = use_resource(move || {
+        let state = state.clone();
+        let _ = refresh_trigger();
+        async move {
+            state.with_conn(|conn| {
+                crate::repository::SettingsRepo::is_pin_set(conn).unwrap_or(false)
+            })
+        }
+    });
+
+    let mut is_unlocked = use_signal(|| false);
+
+    match is_pin_set.cloned() {
+        None => rsx! { div { style: "padding: 40px;", "Loading..." } },
+        Some(false) => {
+            rsx! {
+                PinSetup {
+                    on_set: move |_| {
+                        is_unlocked.set(true);
+                        refresh_trigger += 1;
+                    }
+                }
+            }
+        },
+        Some(true) => {
+            if *is_unlocked.read() {
+                rsx! { MainApp {} }
+            } else {
+                rsx! {
+                    PinUnlock {
+                        on_unlock: move |_| is_unlocked.set(true)
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn MainApp() -> Element {
     let active_tab = use_signal(|| Tab::Dashboard);
 
     rsx! {

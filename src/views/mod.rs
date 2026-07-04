@@ -4,6 +4,7 @@ pub mod settings;
 pub mod transactions;
 pub mod wallets;
 pub mod members;
+pub mod pin;
 
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
 

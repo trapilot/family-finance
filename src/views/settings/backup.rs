@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use crate::app::AppState;
 use crate::models::{Category, Family, Holding, Member, Transaction, Wallet};
 use crate::repository::{CategoryRepo, FamilyRepo, HoldingRepo, TransactionRepo, WalletRepo};
+use crate::views::pin::PinVerifyModal;
 
 // ─── Backup format ────────────────────────────────────────────────────────────
 
@@ -22,6 +23,14 @@ pub struct BackupData {
 
 // ─── BackupSettings view ─────────────────────────────────────────────────────
 
+// ─── Action to execute after PIN verification ─────────────────────────────────
+#[derive(Clone, PartialEq)]
+enum PendingAction {
+    Export,
+    ImportFromFile(PathBuf),
+    ImportFileFromPicker,
+}
+
 #[component]
 pub fn BackupSettings() -> Element {
     let state   = use_context::<AppState>();
@@ -29,19 +38,23 @@ pub fn BackupSettings() -> Element {
     let is_ok   = use_signal(|| true);
     let backups = use_signal(|| Vec::<PathBuf>::new());
 
+    // PIN verification modal state
+    let mut show_pin_modal = use_signal(|| false);
+    let mut pending_action = use_signal(|| None::<PendingAction>);
+
     // ── Load backups on mount and when needed ──
     let mut load_backups_effect = backups.clone();
     use_effect(move || {
         load_backups_effect.set(list_backup_files());
     });
 
-    // ── Export ──
-    let export = {
+    // ── Pending action handlers ──
+    let handle_export = {
         let state  = state.clone();
         let mut status = status.clone();
         let mut is_ok  = is_ok.clone();
         let mut backups = backups.clone();
-        move |_: MouseEvent| {
+        move || {
             let result = state.with_conn(|conn| export_backup(conn));
             match result {
                 Ok(json) => {
@@ -66,8 +79,7 @@ pub fn BackupSettings() -> Element {
         }
     };
 
-    // ── Import from file ──
-    let import = {
+    let handle_import = {
         let state = state.clone();
         let mut status = status.clone();
         let mut is_ok  = is_ok.clone();
@@ -85,6 +97,49 @@ pub fn BackupSettings() -> Element {
                     is_ok.set(false);
                 }
             }
+        }
+    };
+
+    let handle_verified = {
+        let mut show_pin_modal = show_pin_modal.clone();
+        let mut pending_action = pending_action.clone();
+        let mut handle_export = handle_export.clone();
+        let mut handle_import = handle_import.clone();
+        move |_| {
+            if let Some(action) = pending_action.take() {
+                match action {
+                    PendingAction::Export => {
+                        handle_export();
+                    }
+                    PendingAction::ImportFromFile(path) => {
+                        handle_import(path);
+                    }
+                    PendingAction::ImportFileFromPicker => {
+                        // We'll handle this in the JS eval part when we get there
+                    }
+                }
+            }
+            show_pin_modal.set(false);
+        }
+    };
+
+    // ── Trigger PIN check then export ──
+    let export = {
+        let mut show_pin_modal = show_pin_modal.clone();
+        let mut pending_action = pending_action.clone();
+        move |_: MouseEvent| {
+            pending_action.set(Some(PendingAction::Export));
+            show_pin_modal.set(true);
+        }
+    };
+
+    // ── Import from saved file ──
+    let import = {
+        let mut show_pin_modal = show_pin_modal.clone();
+        let mut pending_action = pending_action.clone();
+        move |file_path: PathBuf| {
+            pending_action.set(Some(PendingAction::ImportFromFile(file_path)));
+            show_pin_modal.set(true);
         }
     };
 
@@ -266,6 +321,16 @@ pub fn BackupSettings() -> Element {
 
             // ── Danger zone ──
             DangerZone {}
+
+            // ── PIN Verify Modal ──
+            PinVerifyModal {
+                is_visible: show_pin_modal,
+                on_cancel: move |_| {
+                    pending_action.set(None);
+                    show_pin_modal.set(false);
+                },
+                on_verify: handle_verified,
+            }
         }
     }
 }
@@ -316,7 +381,33 @@ fn BackupFileItem(
 #[component]
 fn DangerZone() -> Element {
     let state   = use_context::<AppState>();
-    let mut confirm = use_signal(|| false);
+    let mut show_pin_modal = use_signal(|| false);
+    let mut confirmed = use_signal(|| false);
+
+    let handle_delete = {
+        let state = state.clone();
+        move || {
+            state.with_conn(|conn| {
+                let _ = conn.execute_batch("
+                    DELETE FROM transactions;
+                    DELETE FROM holdings;
+                    DELETE FROM members;
+                    DELETE FROM families;
+                    DELETE FROM wallets;
+                    DELETE FROM categories WHERE is_system = 0;
+                ");
+            });
+        }
+    };
+
+    let handle_verified = {
+        let mut show_pin_modal = show_pin_modal.clone();
+        let handle_delete = handle_delete.clone();
+        move |_| {
+            handle_delete();
+            show_pin_modal.set(false);
+        }
+    };
 
     rsx! {
         div {
@@ -326,45 +417,20 @@ fn DangerZone() -> Element {
 
             button {
                 style: "width:100%; padding:12px; background:transparent; color:#ef4444; border:1px solid #ef4444; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer;",
-                onclick: move |_| { confirm.set(true); },
+                onclick: move |_| {
+                    confirmed.set(true);
+                    show_pin_modal.set(true);
+                },
                 "Delete All Data"
             }
 
-            if *confirm.read() {
-                div {
-                    style: "position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:200;",
-                    div {
-                        style: "background:#fff; border-radius:16px; padding:24px; margin:16px; max-width:320px; width:100%;",
-                        h3 { style: "margin:0 0 8px; font-size:18px; color:#ef4444;", "Are you sure?" }
-                        p  { style: "margin:0 0 20px; font-size:14px; color:#6b7280;", "All wallets, transactions, and holdings will be permanently deleted." }
-                        div { style: "display:flex; gap:10px;",
-                            button {
-                                style: "flex:1; padding:11px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer; font-size:14px;",
-                                onclick: move |_| { confirm.set(false); },
-                                "Cancel"
-                            }
-                            button {
-                                style: "flex:1; padding:11px; border:none; border-radius:8px; background:#ef4444; color:#fff; cursor:pointer; font-size:14px; font-weight:700;",
-                                onclick: {
-                                    let state = state.clone();
-                                    move |_| {
-                                        state.with_conn(|conn| {
-                                            let _ = conn.execute_batch("
-                                                DELETE FROM transactions;
-                                                DELETE FROM holdings;
-                                                DELETE FROM members;
-                                                DELETE FROM wallets;
-                                                DELETE FROM categories WHERE is_system = 0;
-                                            ");
-                                        });
-                                        confirm.set(false);
-                                    }
-                                },
-                                "Yes, Delete All"
-                            }
-                        }
-                    }
-                }
+            PinVerifyModal {
+                is_visible: show_pin_modal,
+                on_cancel: move |_| {
+                    confirmed.set(false);
+                    show_pin_modal.set(false);
+                },
+                on_verify: handle_verified,
             }
         }
     }

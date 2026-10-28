@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use crate::app::AppState;
 use crate::models::{Category, Family, Holding, Member, Transaction, Wallet};
-use crate::repository::{CategoryRepo, FamilyRepo, HoldingRepo, TransactionRepo, WalletRepo};
+use crate::repository::{CategoryRepo, FamilyRepo, HoldingRepo, SettingsRepo, TransactionRepo, WalletRepo};
 use crate::views::pin::PinVerifyModal;
 
 // ─── Backup format ────────────────────────────────────────────────────────────
@@ -37,6 +37,10 @@ pub fn BackupSettings() -> Element {
     let t = use_i18n();
     let state   = use_context::<AppState>();
     let status  = use_signal(|| String::new());
+    let app_version = use_signal({
+        let state = state.clone();
+        move || state.with_conn(|conn| SettingsRepo::get_app_version(conn).ok().flatten()).unwrap_or_default()
+    });
     let is_ok   = use_signal(|| true);
     let backups = use_signal(|| Vec::<PathBuf>::new());
 
@@ -192,7 +196,7 @@ pub fn BackupSettings() -> Element {
                 style: "background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
                 div { style: "font-size:11px; color:#9ca3af; margin-bottom:4px;", "APP" }
                 div { style: "font-size:16px; font-weight:700; color:#1f2937;", "Family Finance" }
-                div { style: "font-size:13px; color:#6b7280; margin-top:2px;", {t.t("Version 1.0.0 · SQLite local storage")} }
+                div { style: "font-size:13px; color:#6b7280; margin-top:2px;", {t.t("Version {version} · SQLite local storage").replace("{version}", &app_version.read())} }
             }
 
             // ── Export ──
@@ -451,7 +455,7 @@ fn export_backup(conn: &rusqlite::Connection) -> crate::error::Result<String> {
     let families     = FamilyRepo::list(conn)?;
 
     let data = BackupData {
-        app_version:  "1.0.0".into(),
+        app_version:  SettingsRepo::get_app_version(conn)?.unwrap_or_default(),
         exported_at:  crate::views::now_ts(),
         wallets,
         holdings,

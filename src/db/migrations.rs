@@ -14,6 +14,10 @@ pub fn run(conn: &Connection) -> Result<()> {
         migrate_v3(conn)?;
         set_version(conn, 3)?;
     }
+    if version < 4 {
+        migrate_v4(conn)?;
+        set_version(conn, 4)?;
+    }
     Ok(())
 }
 
@@ -150,4 +154,14 @@ fn migrate_v3(conn: &Connection) -> Result<()> {
     ");
 
     Ok(())
+}
+
+// ─── V4 — app settings: app version + UI language ────────
+
+fn migrate_v4(conn: &Connection) -> Result<()> {
+    // INSERT OR IGNORE keeps a language the user already picked
+    conn.execute_batch("
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('app_version', '');
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('language', 'en');
+    ")
 }

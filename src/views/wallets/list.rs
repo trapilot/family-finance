@@ -23,12 +23,27 @@ pub fn WalletList(view: Signal<WalletView>) -> Element {
         }
     });
 
-    // Group wallets
+    // Group wallets by type, in display order (empty groups are skipped)
+    let groups: Vec<(&'static str, Vec<Wallet>)> = [
+        (WalletType::Cash,       "Cash"),
+        (WalletType::Bank,       "Bank"),
+        (WalletType::EWallet,    "E-Wallet"),
+        (WalletType::Investment, "Investment"),
+        (WalletType::Loan,       "Loan"),
+    ]
+    .into_iter()
+    .map(|(wallet_type, title)| {
+        let ws: Vec<Wallet> = wallets.read().iter()
+            .filter(|w| w.wallet_type == wallet_type)
+            .cloned().collect();
+        (title, ws)
+    })
+    .filter(|(_, ws)| !ws.is_empty())
+    .collect();
+
+    // Totals exclude investment wallets (their value lives in holdings)
     let regular: Vec<Wallet> = wallets.read().iter()
         .filter(|w| w.wallet_type != WalletType::Investment)
-        .cloned().collect();
-    let investment: Vec<Wallet> = wallets.read().iter()
-        .filter(|w| w.wallet_type == WalletType::Investment)
         .cloned().collect();
 
     // Net worth per currency
@@ -59,28 +74,10 @@ pub fn WalletList(view: Signal<WalletView>) -> Element {
                 TotalCard { label: "GOLD", value: fmt_gold(total_gold), color: "#f59e0b" }
             }
 
-            // ── Regular wallets ──
-            if !regular.is_empty() {
-                SectionHeader { title: t.t("Cash & Bank") }
-                for wallet in regular.iter() {
-                    WalletCard {
-                        wallet: wallet.clone(),
-                        on_tap: {
-                            let w = wallet.clone();
-                            move |_| { view.set(WalletView::Detail(w.clone())); }
-                        },
-                        on_edit: {
-                            let w = wallet.clone();
-                            move |_| { view.set(WalletView::Edit(w.clone())); }
-                        }
-                    }
-                }
-            }
-
-            // ── Investment wallets ──
-            if !investment.is_empty() {
-                SectionHeader { title: t.t("Investment") }
-                for wallet in investment.iter() {
+            // ── Wallets grouped by type: Cash > Bank > E-Wallet > Investment > Loan ──
+            for (title, group) in groups.iter() {
+                SectionHeader { title: t.t(title) }
+                for wallet in group.iter() {
                     WalletCard {
                         wallet: wallet.clone(),
                         on_tap: {

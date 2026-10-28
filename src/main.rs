@@ -39,6 +39,9 @@ fn main() {
 
         repository::CategoryRepo::seed_defaults(&conn)
             .expect("Failed to seed default categories");
+
+        repository::SettingsRepo::set_app_version(&conn, env!("CARGO_PKG_VERSION"))
+            .expect("Failed to save app version");
     }
 
     launch();

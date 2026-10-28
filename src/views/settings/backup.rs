@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -33,6 +34,7 @@ enum PendingAction {
 
 #[component]
 pub fn BackupSettings() -> Element {
+    let t = use_i18n();
     let state   = use_context::<AppState>();
     let status  = use_signal(|| String::new());
     let is_ok   = use_signal(|| true);
@@ -61,18 +63,18 @@ pub fn BackupSettings() -> Element {
                     let save_result = save_to_backup_folder(&json);
                     match save_result {
                         Ok(path) => {
-                            status.set(format!("✅ Exported to {}", path.display()));
+                            status.set(format!("✅ {} {}", t.t("Exported to"), path.display()));
                             is_ok.set(true);
                             backups.set(list_backup_files());
                         }
                         Err(e) => {
-                            status.set(format!("❌ Save failed: {e}"));
+                            status.set(format!("❌ {}: {e}", t.t("Save failed")));
                             is_ok.set(false);
                         }
                     }
                 }
                 Err(e) => {
-                    status.set(format!("❌ Export failed: {e}"));
+                    status.set(format!("❌ {}: {e}", t.t("Export failed")));
                     is_ok.set(false);
                 }
             }
@@ -88,12 +90,12 @@ pub fn BackupSettings() -> Element {
             let result = read_backup_file(&file_path).and_then(|json| state.with_conn(|conn| import_backup(conn, &json)));
             match result {
                 Ok(stats) => {
-                    status.set(format!("✅ Imported from {}: {}", file_path.display(), stats));
+                    status.set(format!("✅ {} {}: {}", t.t("Imported from"), file_path.display(), stats));
                     is_ok.set(true);
                     backups.set(list_backup_files());
                 }
                 Err(e) => {
-                    status.set(format!("❌ Import failed: {e}"));
+                    status.set(format!("❌ {}: {e}", t.t("Import failed")));
                     is_ok.set(false);
                 }
             }
@@ -151,10 +153,10 @@ pub fn BackupSettings() -> Element {
             match result {
                 Ok(json) => {
                     let _ = share_backup(&json, &file_path);
-                    status.set(format!("✅ Sharing backup {}", file_path.display()));
+                    status.set(format!("✅ {} {}", t.t("Sharing backup"), file_path.display()));
                 }
                 Err(e) => {
-                    status.set(format!("❌ Share failed: {e}"));
+                    status.set(format!("❌ {}: {e}", t.t("Share failed")));
                 }
             }
         }
@@ -169,12 +171,12 @@ pub fn BackupSettings() -> Element {
             let result = std::fs::remove_file(&file_path);
             match result {
                 Ok(_) => {
-                    status.set(format!("✅ Deleted backup {}", file_path.display()));
+                    status.set(format!("✅ {} {}", t.t("Deleted backup"), file_path.display()));
                     is_ok.set(true);
                     backups.set(list_backup_files());
                 }
                 Err(e) => {
-                    status.set(format!("❌ Delete failed: {e}"));
+                    status.set(format!("❌ {}: {e}", t.t("Delete failed")));
                     is_ok.set(false);
                 }
             }
@@ -190,20 +192,20 @@ pub fn BackupSettings() -> Element {
                 style: "background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
                 div { style: "font-size:11px; color:#9ca3af; margin-bottom:4px;", "APP" }
                 div { style: "font-size:16px; font-weight:700; color:#1f2937;", "Family Finance" }
-                div { style: "font-size:13px; color:#6b7280; margin-top:2px;", "Version 1.0.0 · SQLite local storage" }
+                div { style: "font-size:13px; color:#6b7280; margin-top:2px;", {t.t("Version 1.0.0 · SQLite local storage")} }
             }
 
             // ── Export ──
             div {
                 style: "background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
-                h2 { style: "margin:0 0 8px; font-size:16px; font-weight:700; color:#1f2937;", "Export Backup" }
+                h2 { style: "margin:0 0 8px; font-size:16px; font-weight:700; color:#1f2937;", {t.t("Export Backup")} }
                 p  { style: "margin:0 0 12px; font-size:13px; color:#6b7280; line-height:1.5;",
-                    "Export all wallets, holdings, categories, transactions, members and families as a .bk file."
+                    {t.t("Export all wallets, holdings, categories, transactions, members and families as a .bk file.")}
                 }
                 button {
                     style: "width:100%; padding:13px; background:#6366f1; color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer;",
                     onclick: export,
-                    "📤 Export .bk"
+                    {t.t("📤 Export .bk")}
                 }
             }
 
@@ -211,7 +213,7 @@ pub fn BackupSettings() -> Element {
             if !backups.read().is_empty() {
                 div {
                     style: "background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
-                    h2 { style: "margin:0 0 8px; font-size:16px; font-weight:700; color:#1f2937;", "Saved Backups" }
+                    h2 { style: "margin:0 0 8px; font-size:16px; font-weight:700; color:#1f2937;", {t.t("Saved Backups")} }
                     div { style: "display:flex; flex-direction:column; gap:8px;",
                         for path in backups.read().iter() {
                             BackupFileItem {
@@ -228,13 +230,13 @@ pub fn BackupSettings() -> Element {
             // ── Import from file ──
             div {
                 style: "background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
-                h2 { style: "margin:0 0 8px; font-size:16px; font-weight:700; color:#1f2937;", "Import from shared file" }
+                h2 { style: "margin:0 0 8px; font-size:16px; font-weight:700; color:#1f2937;", {t.t("Import from shared file")} }
                 p  { style: "margin:0 0 12px; font-size:13px; color:#ef4444; line-height:1.5; background:#fef2f2; border-radius:8px; padding:10px;",
-                    "⚠️ Import will REPLACE all existing data. This cannot be undone. Select a shared backup file to import it."
+                    {t.t("⚠️ Import will REPLACE all existing data. This cannot be undone. Select a shared backup file to import it.")}
                 }
                 label {
                     style: "display:block; width:100%; padding:13px; background:#6366f1; color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; text-align:center;",
-                    "📥 Import File"
+                    {t.t("📥 Import File")}
                     input {
                         r#type: "file",
                         accept: ".bk,.ffbackup",
@@ -271,7 +273,7 @@ pub fn BackupSettings() -> Element {
                             let _ = dioxus::prelude::spawn(async move {
                                 if let Ok(result) = eval.recv::<String>().await {
                                     if result == "error" {
-                                        status_clone.set("❌ Failed to read file".to_string());
+                                        status_clone.set(t.t("❌ Failed to read file").to_string());
                                         is_ok_clone.set(false);
                                         return;
                                     }
@@ -284,18 +286,18 @@ pub fn BackupSettings() -> Element {
                                                 let import_result = state_clone.with_conn(|conn| import_backup(conn, &content));
                                                 match import_result {
                                                     Ok(stats) => {
-                                                        status_clone.set(format!("✅ Imported from file {}: {}", path.display(), stats));
+                                                        status_clone.set(format!("✅ {} {}: {}", t.t("Imported from file"), path.display(), stats));
                                                         is_ok_clone.set(true);
                                                         backups_clone.set(list_backup_files());
                                                     }
                                                     Err(e) => {
-                                                        status_clone.set(format!("❌ Import failed: {e}"));
+                                                        status_clone.set(format!("❌ {}: {e}", t.t("Import failed")));
                                                         is_ok_clone.set(false);
                                                     }
                                                 }
                                             }
                                             Err(e) => {
-                                                status_clone.set(format!("❌ Save failed: {e}"));
+                                                status_clone.set(format!("❌ {}: {e}", t.t("Save failed")));
                                                 is_ok_clone.set(false);
                                             }
                                         }
@@ -342,6 +344,7 @@ fn BackupFileItem(
     on_share: EventHandler<PathBuf>,
     on_delete: EventHandler<PathBuf>,
 ) -> Element {
+    let t = use_i18n();
     let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("unknown");
     let path_clone_import = path.clone();
     let path_clone_share = path.clone();
@@ -359,17 +362,17 @@ fn BackupFileItem(
                 button {
                     style: "padding:6px 10px; border:none; border-radius:6px; background:#ef4444; color:#fff; font-size:12px; font-weight:600; cursor:pointer;",
                     onclick: move |_| on_import.call(path_clone_import.clone()),
-                    "Revert"
+                    {t.t("Revert")}
                 }
                 button {
                     style: "padding:6px 10px; border:none; border-radius:6px; background:#6366f1; color:#fff; font-size:12px; font-weight:600; cursor:pointer;",
                     onclick: move |_| on_share.call(path_clone_share.clone()),
-                    "Share"
+                    {t.t("Share")}
                 }
                 button {
                     style: "padding:6px 10px; border:none; border-radius:6px; background:#6b7280; color:#fff; font-size:12px; font-weight:600; cursor:pointer;",
                     onclick: move |_| on_delete.call(path_clone_delete.clone()),
-                    "Delete"
+                    {t.t("Delete")}
                 }
             }
         }
@@ -380,6 +383,7 @@ fn BackupFileItem(
 
 #[component]
 fn DangerZone() -> Element {
+    let t = use_i18n();
     let state   = use_context::<AppState>();
     let mut show_pin_modal = use_signal(|| false);
     let mut confirmed = use_signal(|| false);
@@ -412,8 +416,8 @@ fn DangerZone() -> Element {
     rsx! {
         div {
             style: "background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); border:1px solid #fee2e2;",
-            h2 { style: "margin:0 0 8px; font-size:16px; font-weight:700; color:#ef4444;", "⚠️ Danger Zone" }
-            p  { style: "margin:0 0 12px; font-size:13px; color:#6b7280;", "Permanently delete all data. Cannot be undone." }
+            h2 { style: "margin:0 0 8px; font-size:16px; font-weight:700; color:#ef4444;", {t.t("⚠️ Danger Zone")} }
+            p  { style: "margin:0 0 12px; font-size:13px; color:#6b7280;", {t.t("Permanently delete all data. Cannot be undone.")} }
 
             button {
                 style: "width:100%; padding:12px; background:transparent; color:#ef4444; border:1px solid #ef4444; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer;",
@@ -421,7 +425,7 @@ fn DangerZone() -> Element {
                     confirmed.set(true);
                     show_pin_modal.set(true);
                 },
-                "Delete All Data"
+                {t.t("Delete All Data")}
             }
 
             PinVerifyModal {

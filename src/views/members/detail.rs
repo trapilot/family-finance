@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 
 use crate::app::AppState;
 use crate::models::{member::MemberRole, Member};
@@ -8,6 +9,7 @@ use super::MemberView;
 
 #[component]
 pub fn MemberDetail(view: Signal<MemberView>, member: Member) -> Element {
+    let t = use_i18n();
     let state          = use_context::<AppState>();
     let mut confirm_delete = use_signal(|| false);
     let mut copied_field   = use_signal(|| None::<&'static str>);
@@ -44,12 +46,12 @@ pub fn MemberDetail(view: Signal<MemberView>, member: Member) -> Element {
                     onclick: {
                         move |_| { view.set(MemberView::Edit(member_editable.clone())); }
                     },
-                    "Edit"
+                    {t.t("Edit")}
                 }
                 button {
                     style: "border:none; background:#fef2f2; border-radius:8px; padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; color:#ef4444;",
                     onclick: move |_| { confirm_delete.set(true); },
-                    "Delete"
+                    {t.t("Delete")}
                 }
             }
 
@@ -69,18 +71,18 @@ pub fn MemberDetail(view: Signal<MemberView>, member: Member) -> Element {
                         if member.role == MemberRole::Owner {
                             span {
                                 style: "font-size:11px; font-weight:700; background:#fef3c7; color:#d97706; border-radius:6px; padding:3px 8px;",
-                                "👑 OWNER"
+                                {t.t("👑 OWNER")}
                             }
                         } else {
                             span {
                                 style: "font-size:11px; font-weight:700; background:rgba(255,255,255,.2); color:#fff; border-radius:6px; padding:3px 8px;",
-                                "👤 MEMBER"
+                                {t.t("👤 MEMBER")}
                             }
                         }
                         if let Some(ref gender) = member.gender {
                             span {
                                 style: "font-size:11px; background:rgba(255,255,255,.15); color:#fff; border-radius:6px; padding:3px 8px;",
-                                "{gender}"
+                                {t.code(&gender.to_string())}
                             }
                         }
                     }
@@ -98,7 +100,7 @@ pub fn MemberDetail(view: Signal<MemberView>, member: Member) -> Element {
                             rsx! {
                                 CopyField {
                                     icon:  "📞",
-                                    label: "Phone",
+                                    label: t.t("Phone"),
                                     value: phone.clone(),
                                     copied: *copied_field.read() == Some("phone"),
                                     on_copy: move |_| { copy(phone.clone(), "phone"); }
@@ -115,7 +117,7 @@ pub fn MemberDetail(view: Signal<MemberView>, member: Member) -> Element {
                             rsx! {
                                 CopyField {
                                     icon:  "📍",
-                                    label: "Address",
+                                    label: t.t("Address"),
                                     value: address.clone(),
                                     copied: *copied_field.read() == Some("address"),
                                     on_copy: move |_| { copy(address.clone(), "address"); }
@@ -132,7 +134,7 @@ pub fn MemberDetail(view: Signal<MemberView>, member: Member) -> Element {
                             rsx! {
                                 CopyField {
                                     icon:  "🪪",
-                                    label: "ID Number (CCCD/CMND)",
+                                    label: t.t("ID Number (CCCD/CMND)"),
                                     value: id_number.clone(),
                                     copied: *copied_field.read() == Some("id_number"),
                                     on_copy: move |_| { copy(id_number.clone(), "id_number"); }
@@ -145,12 +147,12 @@ pub fn MemberDetail(view: Signal<MemberView>, member: Member) -> Element {
                     if member.id_issue_date.is_some() || member.id_issue_place.is_some() {
                         div {
                             style: "background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
-                            div { style: "font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:8px;", "ID Issue" }
+                            div { style: "font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:8px;", {t.t("ID Issue")} }
                             if let Some(ts) = member.id_issue_date {
-                                InfoRow { label: "Issue Date",  value: ts_to_date_str(ts) }
+                                InfoRow { label: t.t("Issue Date"),  value: ts_to_date_str(ts) }
                             }
                             if let Some(ref place) = member.id_issue_place {
-                                InfoRow { label: "Issue Place", value: place.clone() }
+                                InfoRow { label: t.t("Issue Place"), value: place.clone() }
                             }
                         }
                     }
@@ -158,21 +160,21 @@ pub fn MemberDetail(view: Signal<MemberView>, member: Member) -> Element {
                     // Personal info
                     div {
                         style: "background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
-                        div { style: "font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:8px;", "Personal Info" }
+                        div { style: "font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:8px;", {t.t("Personal Info")} }
                         if let Some(bd) = member.birth_date {
-                            InfoRow { label: "Date of Birth", value: ts_to_date_str(bd) }
+                            InfoRow { label: t.t("Date of Birth"), value: ts_to_date_str(bd) }
                         }
                         if let Some(ref gender) = member.gender {
-                            InfoRow { label: "Gender", value: gender.to_string() }
+                            InfoRow { label: t.t("Gender"), value: t.code(&gender.to_string()) }
                         }
-                        InfoRow { label: "Role", value: member.role.to_string() }
+                        InfoRow { label: t.t("Role"), value: t.code(&member.role.to_string()) }
                     }
 
                     // Note
                     if let Some(ref note) = member.note {
                         div {
                             style: "background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
-                            div { style: "font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:6px;", "Note" }
+                            div { style: "font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; margin-bottom:6px;", {t.t("Note")} }
                             div { style: "font-size:14px; color:#374151; line-height:1.5;", "{note}" }
                         }
                     }
@@ -185,15 +187,15 @@ pub fn MemberDetail(view: Signal<MemberView>, member: Member) -> Element {
                     style: "position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:100;",
                     div {
                         style: "background:#fff; border-radius:16px; padding:24px; margin:20px; max-width:320px; width:100%;",
-                        h3 { style: "margin:0 0 8px; font-size:17px; font-weight:700;", "Remove member?" }
+                        h3 { style: "margin:0 0 8px; font-size:17px; font-weight:700;", {t.t("Remove member?")} }
                         p  { style: "margin:0 0 20px; font-size:14px; color:#6b7280; line-height:1.5;",
-                            ""{member.full_name}" will be permanently removed from your family directory."
+                            {t.t("\"{name}\" will be permanently removed from your family directory.").replace("{name}", &member.full_name)}
                         }
                         div { style: "display:flex; gap:10px;",
                             button {
                                 style: "flex:1; padding:11px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; font-size:14px; cursor:pointer;",
                                 onclick: move |_| { confirm_delete.set(false); },
-                                "Cancel"
+                                {t.t("Cancel")}
                             }
                             button {
                                 style: "flex:1; padding:11px; border:none; border-radius:8px; background:#ef4444; color:#fff; font-size:14px; font-weight:700; cursor:pointer;",
@@ -205,7 +207,7 @@ pub fn MemberDetail(view: Signal<MemberView>, member: Member) -> Element {
                                         view.set(MemberView::List);
                                     }
                                 },
-                                "Remove"
+                                {t.t("Remove")}
                             }
                         }
                     }
@@ -226,6 +228,7 @@ fn CopyField(
     copied:  bool,
     on_copy: EventHandler<MouseEvent>,
 ) -> Element {
+    let t = use_i18n();
     let button_style = if copied { 
         "background:#10b981; color:#fff;" 
     } else { 
@@ -249,7 +252,7 @@ fn CopyField(
                     button_style
                 ),
                 onclick: move |e| { on_copy.call(e); },
-                if copied { "✓ Copied" } else { "Copy" }
+                if copied { {t.t("✓ Copied")} } else { {t.t("Copy")} }
             }
         }
     }

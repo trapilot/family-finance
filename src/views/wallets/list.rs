@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 
 use crate::app::AppState;
 use crate::models::{Currency, Wallet, WalletType};
@@ -8,6 +9,7 @@ use super::WalletView;
 
 #[component]
 pub fn WalletList(view: Signal<WalletView>) -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
     let wallets = use_signal(|| vec![]);
 
@@ -41,11 +43,11 @@ pub fn WalletList(view: Signal<WalletView>) -> Element {
             // ── Header ──
             div {
                 style: "display:flex; justify-content:space-between; align-items:center;",
-                h1 { style: "margin:0; font-size:20px; font-weight:700; color:#1f2937;", "Wallets" }
+                h1 { style: "margin:0; font-size:20px; font-weight:700; color:#1f2937;", {t.t("Wallets")} }
                 button {
                     style: "background:#6366f1; color:#fff; border:none; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;",
                     onclick: move |_| { view.set(WalletView::Add); },
-                    "+ Add"
+                    {t.t("+ Add")}
                 }
             }
 
@@ -59,7 +61,7 @@ pub fn WalletList(view: Signal<WalletView>) -> Element {
 
             // ── Regular wallets ──
             if !regular.is_empty() {
-                SectionHeader { title: "Cash & Bank" }
+                SectionHeader { title: t.t("Cash & Bank") }
                 for wallet in regular.iter() {
                     WalletCard {
                         wallet: wallet.clone(),
@@ -77,7 +79,7 @@ pub fn WalletList(view: Signal<WalletView>) -> Element {
 
             // ── Investment wallets ──
             if !investment.is_empty() {
-                SectionHeader { title: "Investment" }
+                SectionHeader { title: t.t("Investment") }
                 for wallet in investment.iter() {
                     WalletCard {
                         wallet: wallet.clone(),
@@ -97,7 +99,7 @@ pub fn WalletList(view: Signal<WalletView>) -> Element {
                 div {
                     style: "text-align:center; padding:40px 0; color:#9ca3af;",
                     p { style: "font-size:32px; margin:0;", "👛" }
-                    p { style: "font-size:14px; margin:8px 0 0;", "No wallets yet. Add one!" }
+                    p { style: "font-size:14px; margin:8px 0 0;", {t.t("No wallets yet. Add one!")} }
                 }
             }
         }
@@ -130,6 +132,7 @@ fn WalletCard(
     on_tap:  EventHandler<MouseEvent>,
     on_edit: EventHandler<MouseEvent>,
 ) -> Element {
+    let t = use_i18n();
     let (type_icon, type_color) = match wallet.wallet_type {
         WalletType::Cash       => ("💵", "#10b981"),
         WalletType::Bank       => ("🏦", "#6366f1"),
@@ -150,18 +153,16 @@ fn WalletCard(
                 "{icon}"
             }
 
-            div { style: "flex:1;",
-                div { style: "font-size:15px; font-weight:600; color:#1f2937;", "{wallet.name}" }
+            div { style: "flex:1; min-width:0;",
+                div { style: "font-size:15px; font-weight:600; color:#1f2937; overflow-wrap:anywhere;", "{wallet.name}" }
                 div { style: "font-size:11px; color:#9ca3af; margin-top:1px;",
-                    "{wallet.wallet_type} · {wallet.currency}"
+                    "{t.code(&wallet.wallet_type.to_string())} · {wallet.currency}"
                     if let Some(ref broker) = wallet.broker {
                         span { " · {broker}" }
                     }
                 }
-            }
-
-            div { style: "text-align:right;",
-                div { style: "font-size:16px; font-weight:700; color:#1f2937;", "{balance_str}" }
+                // Balance gets its own line so long amounts never squeeze the name
+                div { style: "font-size:16px; font-weight:700; color:#1f2937; margin-top:4px; overflow-wrap:anywhere;", "{balance_str}" }
             }
 
             button {

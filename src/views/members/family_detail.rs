@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use crate::app::AppState;
 use crate::models::{Family, Member};
 use crate::repository::MemberRepo;
@@ -6,6 +7,7 @@ use super::MemberView;
 
 #[component]
 pub fn FamilyDetail(view: Signal<MemberView>, family: Family) -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
     let members = use_signal(|| vec![]);
 
@@ -42,7 +44,7 @@ pub fn FamilyDetail(view: Signal<MemberView>, family: Family) -> Element {
                         let family = family.clone();
                         move |_| { view.set(MemberView::EditFamily(family.clone())); }
                     },
-                    "Edit"
+                    {t.t("Edit")}
                 }
             }
 
@@ -52,7 +54,7 @@ pub fn FamilyDetail(view: Signal<MemberView>, family: Family) -> Element {
                     style: "background:#fff; border-radius:14px; padding:14px; box-shadow:0 1px 4px rgba(0,0,0,.07);",
                     div { style: "display:flex; align-items:center; justify-content:space-between; gap:8px;",
                         div { style: "display:flex; flex-direction:column; gap:4px;",
-                            div { style: "font-size:12px; font-weight:600; color:#6b7280;", "Common Address" }
+                            div { style: "font-size:12px; font-weight:600; color:#6b7280;", {t.t("Common Address")} }
                             div { style: "font-size:14px; color:#1f2937;", "{addr}" }
                         }
                         button {
@@ -64,7 +66,7 @@ pub fn FamilyDetail(view: Signal<MemberView>, family: Family) -> Element {
                                     let _ = dioxus::document::eval(&js);
                                 }
                             },
-                            "Copy"
+                            {t.t("Copy")}
                         }
                     }
                 }
@@ -74,7 +76,7 @@ pub fn FamilyDetail(view: Signal<MemberView>, family: Family) -> Element {
             if let Some(note) = &family.note {
                 div {
                     style: "background:#fff; border-radius:14px; padding:14px; box-shadow:0 1px 4px rgba(0,0,0,.07);",
-                    div { style: "font-size:12px; font-weight:600; color:#6b7280; margin-bottom:6px;", "Note" }
+                    div { style: "font-size:12px; font-weight:600; color:#6b7280; margin-bottom:6px;", {t.t("Note")} }
                     div { style: "font-size:14px; color:#1f2937;", "{note}" }
                 }
             }
@@ -83,7 +85,7 @@ pub fn FamilyDetail(view: Signal<MemberView>, family: Family) -> Element {
             if !members.read().is_empty() {
                 div {
                     style: "display:flex; flex-direction:column; gap:8px;",
-                    div { style: "font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.6px; padding:0 2px;", "Members" }
+                    div { style: "font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.6px; padding:0 2px;", {t.t("Members")} }
                     for m in members.read().iter() {
                         MemberRow { member: m.clone(), view }
                     }
@@ -95,6 +97,7 @@ pub fn FamilyDetail(view: Signal<MemberView>, family: Family) -> Element {
 
 #[component]
 fn MemberRow(member: Member, view: Signal<MemberView>) -> Element {
+    let t = use_i18n();
     let address = member.address.clone();
     let copy_address = move |_| {
         if let Some(addr) = &address {
@@ -124,7 +127,7 @@ fn MemberRow(member: Member, view: Signal<MemberView>) -> Element {
                         if member.role == crate::models::member::MemberRole::Owner {
                             span {
                                 style: "font-size:9px; font-weight:700; background:#fef3c7; color:#d97706; border-radius:4px; padding:1px 5px;",
-                                "OWNER"
+                                {t.t("OWNER")}
                             }
                         }
                     }
@@ -136,7 +139,7 @@ fn MemberRow(member: Member, view: Signal<MemberView>) -> Element {
                     button {
                         style: "background:#f3f4f6; color:#6b7280; border:none; border-radius:8px; padding:6px 10px; font-size:11px; font-weight:600; cursor:pointer; flex-shrink:0;",
                         onclick: copy_address,
-                        "Copy Address"
+                        {t.t("Copy Address")}
                     }
                 }
                 span { style: "color:#d1d5db; font-size:18px; flex-shrink:0;", "›" }

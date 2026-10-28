@@ -1,6 +1,7 @@
 mod app;
 mod db;
 mod error;
+mod i18n;
 mod models;
 mod repository;
 mod services;

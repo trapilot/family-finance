@@ -117,7 +117,12 @@ pub fn current_month() -> (i32, u32) {
     (now.year(), now.month())
 }
 
+/// "Oct 2026" in English, "T10/2026" in Vietnamese (follows the language of the rendering component)
 pub fn month_label(year: i32, month: u32) -> String {
+    let lang = try_consume_context::<crate::i18n::I18n>().map(|t| t.lang()).unwrap_or_default();
+    if lang == crate::i18n::Lang::Vi {
+        return format!("T{month}/{year}");
+    }
     let names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     let name = names.get((month - 1) as usize).unwrap_or(&"?");
     format!("{name} {year}")

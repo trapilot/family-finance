@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 
@@ -9,6 +10,7 @@ use super::expense::EmptyState;
 
 #[component]
 pub fn TimelineReport() -> Element {
+    let t = use_i18n();
     let state    = use_context::<AppState>();
     let mut months   = use_signal(|| 6u32);
     let summaries = use_signal(|| vec![]);
@@ -80,7 +82,7 @@ pub fn TimelineReport() -> Element {
             }
 
             if data.is_empty() {
-                EmptyState { msg: "Not enough data yet" }
+                EmptyState { msg: t.t("Not enough data yet") }
             } else {
                 // ── SVG Bar Chart ──
                 div {
@@ -154,11 +156,11 @@ pub fn TimelineReport() -> Element {
                         style: "display:flex; gap:16px; margin-top:8px; justify-content:center;",
                         div { style: "display:flex; align-items:center; gap:4px; font-size:12px; color:#6b7280;",
                             div { style: "width:12px; height:12px; background:#10b981; border-radius:2px;" }
-                            "Income"
+                            {t.t("Income")}
                         }
                         div { style: "display:flex; align-items:center; gap:4px; font-size:12px; color:#6b7280;",
                             div { style: "width:12px; height:12px; background:#ef4444; border-radius:2px;" }
-                            "Expense"
+                            {t.t("Expense")}
                         }
                     }
                 }
@@ -176,10 +178,10 @@ pub fn TimelineReport() -> Element {
                     // Header row
                     div {
                         style: "display:grid; grid-template-columns:80px 1fr 1fr 1fr; gap:4px; padding:6px 0; border-bottom:1px solid #f3f4f6;",
-                        span { style: "font-size:11px; font-weight:700; color:#9ca3af;", "Month" }
-                        span { style: "font-size:11px; font-weight:700; color:#10b981; text-align:right;", "Income" }
-                        span { style: "font-size:11px; font-weight:700; color:#ef4444; text-align:right;", "Expense" }
-                        span { style: "font-size:11px; font-weight:700; color:#6366f1; text-align:right;", "Savings" }
+                        span { style: "font-size:11px; font-weight:700; color:#9ca3af;", {t.t("Month")} }
+                        span { style: "font-size:11px; font-weight:700; color:#10b981; text-align:right;", {t.t("Income")} }
+                        span { style: "font-size:11px; font-weight:700; color:#ef4444; text-align:right;", {t.t("Expense")} }
+                        span { style: "font-size:11px; font-weight:700; color:#6366f1; text-align:right;", {t.t("Savings")} }
                     }
                     for s in data.iter().rev() {
                         div {
@@ -205,6 +207,7 @@ pub fn TimelineReport() -> Element {
 
 #[component]
 fn MonthDetailCard(summary: MonthlySummary) -> Element {
+    let t = use_i18n();
     let savings_rate_color = if summary.savings_rate >= Decimal::ZERO {
         "#f59e0b"
     } else {
@@ -217,32 +220,32 @@ fn MonthDetailCard(summary: MonthlySummary) -> Element {
 
             div {
                 style: "font-size:13px; font-weight:700; color:#374151; margin-bottom:10px;",
-                "{month_label(summary.year, summary.month)} — Detail"
+                "{month_label(summary.year, summary.month)} — {t.t(\"Detail\")}"
             }
 
             div {
                 style: "display:grid; grid-template-columns:1fr 1fr; gap:8px;",
 
                 StatBox {
-                    label: "Income",
+                    label: t.t("Income"),
                     value: fmt_vnd(summary.income),
                     color: "#10b981"
                 }
 
                 StatBox {
-                    label: "Expense",
+                    label: t.t("Expense"),
                     value: fmt_vnd(summary.expense),
                     color: "#ef4444"
                 }
 
                 StatBox {
-                    label: "Savings",
+                    label: t.t("Savings"),
                     value: fmt_vnd(summary.savings),
                     color: "#6366f1"
                 }
 
                 StatBox {
-                    label: "Savings Rate",
+                    label: t.t("Savings Rate"),
                     value: format!("{:.1}%", summary.savings_rate),
                     color: savings_rate_color,
                 }

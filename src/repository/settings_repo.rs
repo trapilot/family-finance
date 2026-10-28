@@ -6,6 +6,24 @@ pub struct SettingsRepo;
 
 impl SettingsRepo {
     const KEY_PIN_HASH: &'static str = "pin_hash";
+    const KEY_LANGUAGE: &'static str = "language";
+
+    /// UI language code ("en" / "vi"); None until the user picks one.
+    pub fn get_language(conn: &Connection) -> Result<Option<String>> {
+        Ok(conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            rusqlite::params![Self::KEY_LANGUAGE],
+            |row| row.get(0),
+        ).optional()?)
+    }
+
+    pub fn set_language(conn: &Connection, code: &str) -> Result<()> {
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            rusqlite::params![Self::KEY_LANGUAGE, code],
+        )?;
+        Ok(())
+    }
 
     pub fn set_pin(conn: &Connection, pin: &str) -> Result<()> {
         let hashed_pin = hash(pin, DEFAULT_COST)?;

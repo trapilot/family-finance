@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -10,6 +11,7 @@ use crate::views::AmountInput;
 
 #[component]
 pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
 
     let mut name        = use_signal(|| editing.as_ref().map(|w| w.name.clone()).unwrap_or_default());
@@ -20,7 +22,7 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
     let mut icon        = use_signal(|| editing.as_ref().and_then(|w| w.icon.clone()).unwrap_or_default());
     let error_msg   = use_signal(|| String::new());
 
-    let title = if editing.is_some() { "Edit Wallet" } else { "New Wallet" };
+    let title = if editing.is_some() { t.t("Edit Wallet") } else { t.t("New Wallet") };
 
     let submit = {
         let state = state.clone();
@@ -36,12 +38,12 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
         move |_: MouseEvent| {
             let name_val = name.read().trim().to_string();
             if name_val.is_empty() {
-                error_msg.set("Name is required".into());
+                error_msg.set(t.t("Name is required").into());
                 return;
             }
             let balance = match Decimal::from_str(&balance_str.read()) {
                 Ok(b) => b,
-                Err(_) => { error_msg.set("Invalid balance".into()); return; }
+                Err(_) => { error_msg.set(t.t("Invalid balance").into()); return; }
             };
             let broker_opt = {
                 let b = broker.read();
@@ -98,25 +100,25 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
             }
 
             // ── Name ──
-            FieldLabel { label: "Name" }
+            FieldLabel { label: t.t("Name") }
             input {
                 style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;",
                 r#type: "text",
-                placeholder: "e.g. HSBC",
+                placeholder: t.t("e.g. HSBC"),
                 value: "{name.read()}",
                 oninput: move |e| { name.set(e.value()); },
             }
 
             // ── Type ──
-            FieldLabel { label: "Type" }
+            FieldLabel { label: t.t("Type") }
             div {
                 style: "display:grid; grid-template-columns:1fr 1fr; gap:8px;",
                 for (wt, label, icon_str) in [
-                    (WalletType::Cash,       "Cash",       "💵"),
-                    (WalletType::Bank,       "Bank",       "🏦"),
-                    (WalletType::Loan,       "Loan",       "🤝"),
-                    (WalletType::EWallet,    "E-Wallet",   "📱"),
-                    (WalletType::Investment, "Investment", "📈"),
+                    (WalletType::Cash,       t.t("Cash"),       "💵"),
+                    (WalletType::Bank,       t.t("Bank"),       "🏦"),
+                    (WalletType::Loan,       t.t("Loan"),       "🤝"),
+                    (WalletType::EWallet,    t.t("E-Wallet"),   "📱"),
+                    (WalletType::Investment, t.t("Investment"), "📈"),
                 ] {
                     {
                         let wt_clone = wt.clone();
@@ -137,7 +139,7 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
             }
 
             // ── Currency ──
-            FieldLabel { label: "Currency" }
+            FieldLabel { label: t.t("Currency") }
             div {
                 style: "display:flex; gap:8px;",
                 for cur in [Currency::VND, Currency::USD, Currency::GOLD] {
@@ -161,7 +163,7 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
 
             // ── Initial balance (only for new) ──
             if editing.is_none() {
-                FieldLabel { label: "Opening Balance" }
+                FieldLabel { label: t.t("Opening Balance") }
                 AmountInput {
                     value: balance_str.read().clone(),
                     oninput: move |v| balance_str.set(v),
@@ -170,18 +172,18 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
 
             // ── Broker (investment only) ──
             if *wallet_type.read() == WalletType::Investment {
-                FieldLabel { label: "Broker" }
+                FieldLabel { label: t.t("Broker") }
                 input {
                     style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; background:#fff;",
                     r#type: "text",
-                    placeholder: "e.g. HSBC, VPS, Binance, OKX",
+                    placeholder: t.t("e.g. HSBC, VPS, Binance, OKX"),
                     value: "{broker.read()}",
                     oninput: move |e| { broker.set(e.value()); },
                 }
             }
 
             // ── Icon ──
-            FieldLabel { label: "Icon (emoji, optional)" }
+            FieldLabel { label: t.t("Icon (emoji, optional)") }
             input {
                 style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:22px; outline:none; background:#fff; width:60px;",
                 r#type: "text",
@@ -204,7 +206,7 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
             button {
                 style: "padding:14px; background:#6366f1; color:#fff; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; margin-top:4px;",
                 onclick: submit,
-                if editing.is_some() { "Update Wallet" } else { "Create Wallet" }
+                if editing.is_some() { {t.t("Update Wallet")} } else { {t.t("Create Wallet")} }
             }
         }
     }

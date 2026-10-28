@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 use rusqlite::Connection;
 use std::sync::{Arc, Mutex};
 
+use crate::i18n::{use_i18n, I18n, Lang};
 use crate::views::{
     dashboard::Dashboard,
     reports::Reports,
@@ -53,6 +54,17 @@ pub fn App() -> Element {
     let state = AppState::new(db);
     provide_context(state.clone());
 
+    // UI language: loaded once from settings, switched from the Settings screen
+    let lang = use_signal({
+        let state = state.clone();
+        move || {
+            state.with_conn(|conn| crate::repository::SettingsRepo::get_language(conn).ok().flatten())
+                .map(|code| Lang::from_code(&code))
+                .unwrap_or_default()
+        }
+    });
+    let t = use_context_provider(|| I18n::new(lang));
+
     let mut refresh_trigger = use_signal(|| 0);
 
     let is_pin_set = use_resource(move || {
@@ -68,7 +80,7 @@ pub fn App() -> Element {
     let mut is_unlocked = use_signal(|| false);
 
     match is_pin_set.cloned() {
-        None => rsx! { div { style: "padding: 40px;", "Loading..." } },
+        None => rsx! { div { style: "padding: 40px;", {t.t("Loading...")} } },
         Some(false) => {
             rsx! {
                 PinSetup {
@@ -121,6 +133,7 @@ fn MainApp() -> Element {
 
 #[component]
 fn BottomTabBar(active_tab: Signal<Tab>) -> Element {
+    let t = use_i18n();
     let tabs: &[(Tab, &str, &str)] = &[
         (Tab::Dashboard,    "🏠", "Overview"),
         (Tab::Transactions, "💳", "Txns"),
@@ -146,7 +159,7 @@ fn BottomTabBar(active_tab: Signal<Tab>) -> Element {
                             span {
                                 style: if is_active { "max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; font-weight:700; color:#6366f1;" }
                                        else { "max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; color:#9ca3af;" },
-                                "{label}"
+                                {t.t(label)}
                             }
                         }
                     }

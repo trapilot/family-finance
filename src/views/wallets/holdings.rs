@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use rust_decimal::Decimal;
 
 use crate::app::AppState;
@@ -9,6 +10,7 @@ use crate::models::Currency;
 
 #[component]
 pub fn HoldingsView(wallet_id: String) -> Element {
+    let t = use_i18n();
     let state    = use_context::<AppState>();
     let holdings = use_signal(|| vec![]);
     let mut edit_price_id  = use_signal(|| None::<String>);
@@ -52,21 +54,21 @@ pub fn HoldingsView(wallet_id: String) -> Element {
             // ── Portfolio summary ──
             div {
                 style: "background:linear-gradient(135deg, #1e1b4b, #312e81); border-radius:12px; padding:16px; color:#fff;",
-                div { style: "font-size:11px; opacity:.7; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px;", "Portfolio" }
+                div { style: "font-size:11px; opacity:.7; text-transform:uppercase; letter-spacing:.5px; margin-bottom:8px;", {t.t("Portfolio")} }
                 div {
                     style: "display:grid; grid-template-columns:1fr 1fr; gap:10px;",
                     PortfolioStat {
-                        label: "Cost Basis",
+                        label: t.t("Cost Basis"),
                         value: fmt_currency(total_cost, &Currency::VND),
                         color: "#a5b4fc"
                     }
                     PortfolioStat {
-                        label: "Market Value",
+                        label: t.t("Market Value"),
                         value: total_mv.map(|v| fmt_currency(v, &Currency::VND)).unwrap_or("—".into()),
                         color: "#6ee7b7"
                     }
                     PortfolioStat {
-                        label: "Unrealized P&L",
+                        label: t.t("Unrealized P&L"),
                         value: total_pnl.map(|p| {
                             let sign = if p >= Decimal::ZERO { "+" } else { "" };
                             format!("{sign}{}", fmt_currency(p, &Currency::VND))
@@ -74,7 +76,7 @@ pub fn HoldingsView(wallet_id: String) -> Element {
                         color: total_pnl.map(|p| if p >= Decimal::ZERO { "#6ee7b7" } else { "#fca5a5" }).unwrap_or("#a5b4fc")
                     }
                     PortfolioStat {
-                        label: "Holdings",
+                        label: t.t("Holdings"),
                         value: holdings.read().len().to_string(),
                         color: "#fde68a"
                     }
@@ -86,7 +88,7 @@ pub fn HoldingsView(wallet_id: String) -> Element {
                 div {
                     style: "text-align:center; padding:32px 0; color:#9ca3af; font-size:14px;",
                     p { style: "font-size:28px; margin:0;", "📈" }
-                    p { style: "margin:8px 0 0;", "No holdings yet. Add a Buy transaction." }
+                    p { style: "margin:8px 0 0;", {t.t("No holdings yet. Add a Buy transaction.")} }
                 }
             }
 
@@ -138,6 +140,7 @@ fn HoldingCard(
     on_price_save:   EventHandler<MouseEvent>,
     on_price_cancel: EventHandler<MouseEvent>,
 ) -> Element {
+    let t = use_i18n();
     let h = &item.holding;
     let asset_color = match h.asset_type {
         AssetType::Stock  => "#6366f1",
@@ -189,12 +192,12 @@ fn HoldingCard(
             // ── Stats grid ──
             div {
                 style: "display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px;",
-                StatCell { label: "Qty",       value: format!("{:.4}", h.quantity) }
-                StatCell { label: "Avg Cost",  value: format!("{:.0}", h.avg_buy_price) }
-                StatCell { label: "Last Price", value: h.last_price.map(|p| format!("{p:.0}")).unwrap_or("—".into()) }
-                StatCell { label: "Cost Basis", value: format!("{:.0}", item.cost_basis) }
-                StatCell { label: "Mkt Value",  value: item.market_value.map(|v| format!("{v:.0}")).unwrap_or("—".into()) }
-                StatCell { label: "Type",       value: format!("{}", h.asset_type) }
+                StatCell { label: t.t("Qty"),       value: format!("{:.4}", h.quantity) }
+                StatCell { label: t.t("Avg Cost"),  value: format!("{:.0}", h.avg_buy_price) }
+                StatCell { label: t.t("Last Price"), value: h.last_price.map(|p| format!("{p:.0}")).unwrap_or("—".into()) }
+                StatCell { label: t.t("Cost Basis"), value: format!("{:.0}", item.cost_basis) }
+                StatCell { label: t.t("Mkt Value"),  value: item.market_value.map(|v| format!("{v:.0}")).unwrap_or("—".into()) }
+                StatCell { label: t.t("Type"),       value: t.code(&h.asset_type.to_string()) }
             }
 
             // ── Price update ──
@@ -203,14 +206,14 @@ fn HoldingCard(
                     style: "display:flex; gap:8px; align-items:center;",
                     AmountInput {
                         style: "flex:1; min-width:0; border:1px solid #6366f1; border-radius:8px; padding:8px 10px; font-size:14px; outline:none;",
-                        placeholder: "New price",
+                        placeholder: t.t("New price"),
                         value: price_input.clone(),
                         oninput: move |v| on_price_input.call(v),
                     }
                     button {
                         style: "padding:8px 14px; background:#6366f1; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;",
                         onclick: move |e| { on_price_save.call(e); },
-                        "Save"
+                        {t.t("Save")}
                     }
                     button {
                         style: "padding:8px 12px; background:#f3f4f6; color:#6b7280; border:none; border-radius:8px; font-size:13px; cursor:pointer;",
@@ -222,7 +225,7 @@ fn HoldingCard(
                 button {
                     style: "width:100%; padding:8px; border:1px dashed #d1d5db; border-radius:8px; background:transparent; color:#6b7280; font-size:13px; cursor:pointer;",
                     onclick: move |e| { on_edit_price.call(e); },
-                    "Update last price"
+                    {t.t("Update last price")}
                 }
             }
         }

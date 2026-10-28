@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
@@ -13,6 +14,7 @@ use super::TxnView;
 
 #[component]
 pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
 
     // ── Reference data ──
@@ -98,7 +100,7 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
         move |_: MouseEvent| {
             let amount = match Decimal::from_str(&amount_str.read()) {
                 Ok(a) => a,
-                Err(_) => { error_msg.set("Invalid amount".into()); return; }
+                Err(_) => { error_msg.set(t.t("Invalid amount").into()); return; }
             };
             let date_ts = match date_str_to_ts(&txn_date.read()) {
                 Some(ts) => ts,
@@ -131,7 +133,7 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                 TransactionType::Transfer => {
                     let to_amount = match Decimal::from_str(&to_amount_str.read()) {
                         Ok(a) => a,
-                        Err(_) => { error_msg.set("Invalid to_amount".into()); return; }
+                        Err(_) => { error_msg.set(t.t("Invalid to_amount").into()); return; }
                     };
                     NewTransaction::transfer(
                         &wallet_id.read(),
@@ -144,13 +146,13 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                     )
                 }
                 TransactionType::InvestBuy => {
-                    let qty   = match Decimal::from_str(&qty_str.read())   { Ok(q) => q, Err(_) => { error_msg.set("Invalid quantity".into()); return; } };
-                    let price = match Decimal::from_str(&price_str.read()) { Ok(p) => p, Err(_) => { error_msg.set("Invalid price".into()); return; } };
+                    let qty   = match Decimal::from_str(&qty_str.read())   { Ok(q) => q, Err(_) => { error_msg.set(t.t("Invalid quantity").into()); return; } };
+                    let price = match Decimal::from_str(&price_str.read()) { Ok(p) => p, Err(_) => { error_msg.set(t.t("Invalid price").into()); return; } };
                     NewTransaction::invest_buy(&wallet_id.read(), &holding_id.read(), qty, price, currency.read().clone(), date_ts)
                 }
                 TransactionType::InvestSell => {
-                    let qty   = match Decimal::from_str(&qty_str.read())   { Ok(q) => q, Err(_) => { error_msg.set("Invalid quantity".into()); return; } };
-                    let price = match Decimal::from_str(&price_str.read()) { Ok(p) => p, Err(_) => { error_msg.set("Invalid price".into()); return; } };
+                    let qty   = match Decimal::from_str(&qty_str.read())   { Ok(q) => q, Err(_) => { error_msg.set(t.t("Invalid quantity").into()); return; } };
+                    let price = match Decimal::from_str(&price_str.read()) { Ok(p) => p, Err(_) => { error_msg.set(t.t("Invalid price").into()); return; } };
                     NewTransaction::invest_sell(&wallet_id.read(), &holding_id.read(), qty, price, currency.read().clone(), date_ts)
                 }
             };
@@ -172,7 +174,7 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
         }
     };
 
-    let title = if editing.is_some() { "Edit Transaction" } else { "New Transaction" };
+    let title = if editing.is_some() { t.t("Edit Transaction") } else { t.t("New Transaction") };
 
     rsx! {
         div {
@@ -193,11 +195,11 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
             div {
                 style: "display:flex; gap:6px; flex-wrap:wrap;",
                 for (tt, label) in [
-                    (TransactionType::Expense,   "Expense"),
-                    (TransactionType::Income,    "Income"),
-                    (TransactionType::Transfer,  "Transfer"),
-                    (TransactionType::InvestBuy, "Buy"),
-                    (TransactionType::InvestSell,"Sell"),
+                    (TransactionType::Expense,   t.t("Expense")),
+                    (TransactionType::Income,    t.t("Income")),
+                    (TransactionType::Transfer,  t.t("Transfer")),
+                    (TransactionType::InvestBuy, t.t("Buy")),
+                    (TransactionType::InvestSell,t.t("Sell")),
                 ] {
                     {
                         let tt_clone = tt.clone();
@@ -220,16 +222,16 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
             }
 
             // ── Wallet ──
-            FieldLabel { label: "From Wallet" }
+            FieldLabel { label: t.t("From Wallet") }
             SelectField {
                 value: wallet_id.read().clone(),
                 onchange: move |v| { wallet_id.set(v); },
-                placeholder: "Select wallet",
+                placeholder: t.t("Select wallet"),
                 options: wallets.read().iter().map(|w| (w.id.clone(), format!("{} ({})", w.name, w.currency))).collect()
             }
 
             // ── Currency ──
-            FieldLabel { label: "Currency" }
+            FieldLabel { label: t.t("Currency") }
             div {
                 style: "display:flex; gap:8px;",
                 for cur in [Currency::VND, Currency::USD, Currency::GOLD] {
@@ -252,7 +254,7 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
             }
 
             // ── Amount ──
-            FieldLabel { label: "Amount" }
+            FieldLabel { label: t.t("Amount") }
             AmountInput {
                 value: amount_str.read().clone(),
                 oninput: move |v| amount_str.set(v),
@@ -261,7 +263,7 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
             // ── Type-specific fields ──
             match txn_type.read().clone() {
                 TransactionType::Income => rsx! {
-                    FieldLabel { label: "Income Type" }
+                    FieldLabel { label: t.t("Income Type") }
                     SelectField {
                         value: income_type.read().to_string(),
                         onchange: move |v: String| {
@@ -269,43 +271,43 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                                 income_type.set(it);
                             }
                         },
-                        placeholder: "Select type",
+                        placeholder: t.t("Select type"),
                         options: vec![
-                            ("salary".into(),      "Salary".into()),
-                            ("bonus".into(),       "Bonus".into()),
-                            ("side_income".into(), "Side Income".into()),
-                            ("rental".into(),      "Rental".into()),
-                            ("investment".into(),  "Investment".into()),
-                            ("other".into(),       "Other".into()),
+                            ("salary".into(),      t.t("Salary").into()),
+                            ("bonus".into(),       t.t("Bonus").into()),
+                            ("side_income".into(), t.t("Side Income").into()),
+                            ("rental".into(),      t.t("Rental").into()),
+                            ("investment".into(),  t.t("Investment").into()),
+                            ("other".into(),       t.t("Other").into()),
                         ]
                     }
                 },
 
                 TransactionType::Expense => rsx! {
-                    FieldLabel { label: "Category" }
+                    FieldLabel { label: t.t("Category") }
                     SelectField {
                         value: category_id.read().clone(),
                         onchange: move |v| { category_id.set(v); },
-                        placeholder: "Select category",
-                        options: categories.read().iter().map(|c| (c.id.clone(), format!("{} {}", c.icon.as_deref().unwrap_or(""), c.name))).collect()
+                        placeholder: t.t("Select category"),
+                        options: categories.read().iter().map(|c| (c.id.clone(), format!("{} {}", c.icon.as_deref().unwrap_or(""), t.tr(&c.name)))).collect()
                     }
                 },
 
                 TransactionType::Transfer => rsx! {
-                    FieldLabel { label: "To Wallet" }
+                    FieldLabel { label: t.t("To Wallet") }
                     SelectField {
                         value: to_wallet_id.read().clone(),
                         onchange: move |v| { to_wallet_id.set(v); },
-                        placeholder: "Select destination wallet",
+                        placeholder: t.t("Select destination wallet"),
                         options: wallets.read().iter().map(|w| (w.id.clone(), format!("{} ({})", w.name, w.currency))).collect()
                     }
-                    FieldLabel { label: "To Amount (leave same for same-currency)" }
+                    FieldLabel { label: t.t("To Amount (leave same for same-currency)") }
                     AmountInput {
                         value: to_amount_str.read().clone(),
-                        placeholder: "Received amount",
+                        placeholder: t.t("Received amount"),
                         oninput: move |v| to_amount_str.set(v),
                     }
-                    FieldLabel { label: "To Currency" }
+                    FieldLabel { label: t.t("To Currency") }
                     div {
                         style: "display:flex; gap:8px;",
                         for cur in [Currency::VND, Currency::USD, Currency::GOLD] {
@@ -329,19 +331,19 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                 },
 
                 TransactionType::InvestBuy | TransactionType::InvestSell => rsx! {
-                    FieldLabel { label: "Holding" }
+                    FieldLabel { label: t.t("Holding") }
                     SelectField {
                         value: holding_id.read().clone(),
                         onchange: move |v| { holding_id.set(v); },
-                        placeholder: "Select symbol",
+                        placeholder: t.t("Select symbol"),
                         options: holdings.read().iter().map(|h| (h.id.clone(), format!("{} ({})", h.symbol, h.asset_type))).collect()
                     }
-                    FieldLabel { label: "Quantity" }
+                    FieldLabel { label: t.t("Quantity") }
                     AmountInput {
                         value: qty_str.read().clone(),
                         oninput: move |v| qty_str.set(v),
                     }
-                    FieldLabel { label: "Price per unit" }
+                    FieldLabel { label: t.t("Price per unit") }
                     AmountInput {
                         value: price_str.read().clone(),
                         oninput: move |v| price_str.set(v),
@@ -350,7 +352,7 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
             }
 
             // ── Date ──
-            FieldLabel { label: "Date" }
+            FieldLabel { label: t.t("Date") }
             input {
                 style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; background:#fff;",
                 r#type: "date",
@@ -359,11 +361,11 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
             }
 
             // ── Note ──
-            FieldLabel { label: "Note (optional)" }
+            FieldLabel { label: t.t("Note (optional)") }
             input {
                 style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; background:#fff;",
                 r#type: "text",
-                placeholder: "Add a note…",
+                placeholder: t.t("Add a note…"),
                 value: "{note.read()}",
                 oninput: move |e| { note.set(e.value()); },
             }
@@ -380,7 +382,7 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
             button {
                 style: "padding:14px; background:#6366f1; color:#fff; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; margin-top:4px;",
                 onclick: submit,
-                if editing.is_some() { "Update Transaction" } else { "Add Transaction" }
+                if editing.is_some() { {t.t("Update Transaction")} } else { {t.t("Add Transaction")} }
             }
         }
     }

@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use rust_decimal::Decimal;
 
 use crate::app::AppState;
@@ -9,6 +10,7 @@ use super::expense::EmptyState;
 
 #[component]
 pub fn InvestmentReport() -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
     let mut items = use_signal(|| vec![]);
 
@@ -76,32 +78,32 @@ pub fn InvestmentReport() -> Element {
 
                 div {
                     style: "font-size:11px; opacity:.6; text-transform:uppercase; letter-spacing:.5px; margin-bottom:12px;",
-                    "Investment Overview"
+                    {t.t("Investment Overview")}
                 }
 
                 div {
                     style: "display:grid; grid-template-columns:1fr 1fr; gap:10px;",
 
                     InvStat {
-                        label: "Cost Basis",
+                        label: t.t("Cost Basis"),
                         value: fmt_currency(total_cost, &Currency::VND),
                         color: "#a5b4fc"
                     }
 
                     InvStat {
-                        label: "Market Value",
+                        label: t.t("Market Value"),
                         value: fmt_currency(total_mv, &Currency::VND),
                         color: "#6ee7b7"
                     }
 
                     InvStat {
-                        label: "Unrealized P&L",
+                        label: t.t("Unrealized P&L"),
                         value: unrealized_value,
                         color: unrealized_color
                     }
 
                     InvStat {
-                        label: "Realized P&L",
+                        label: t.t("Realized P&L"),
                         value: realized_value,
                         color: realized_color
                     }
@@ -113,7 +115,7 @@ pub fn InvestmentReport() -> Element {
                 if data.is_empty() {
                     rsx! {
                         EmptyState {
-                            msg: "No investment holdings yet"
+                            msg: t.t("No investment holdings yet")
                         }
                     }
                 } else {
@@ -134,6 +136,7 @@ pub fn InvestmentReport() -> Element {
 
 #[component]
 fn InvestmentCard(item: InvestmentPnlItem) -> Element {
+    let t = use_i18n();
     let unr = item.unrealized_pnl.unwrap_or(Decimal::ZERO);
     let unr_color  = if unr >= Decimal::ZERO { "#10b981" } else { "#ef4444" };
     let real_color = if item.realized_pnl >= Decimal::ZERO { "#10b981" } else { "#ef4444" };
@@ -172,12 +175,12 @@ fn InvestmentCard(item: InvestmentPnlItem) -> Element {
             // Stats grid
             div {
                 style: "display:grid; grid-template-columns:repeat(3,1fr); gap:6px;",
-                PnlCell { label: "Quantity",    value: format!("{:.4}", item.quantity),           color: "#374151" }
-                PnlCell { label: "Avg Cost",    value: format!("{:.0}", item.avg_buy_price),       color: "#374151" }
-                PnlCell { label: "Last Price",  value: item.last_price.map(|p| format!("{p:.0}")).unwrap_or("—".into()), color: "#374151" }
-                PnlCell { label: "Cost Basis",  value: fmt_currency(item.cost_basis, &Currency::VND),  color: "#6b7280" }
-                PnlCell { label: "Mkt Value",   value: item.market_value.map(|v| fmt_currency(v, &Currency::VND)).unwrap_or("—".into()), color: "#6b7280" }
-                PnlCell { label: "Realized P&L", value: format!("{real_sign}{}", fmt_currency(item.realized_pnl, &Currency::VND)), color: real_color }
+                PnlCell { label: t.t("Quantity"),    value: format!("{:.4}", item.quantity),           color: "#374151" }
+                PnlCell { label: t.t("Avg Cost"),    value: format!("{:.0}", item.avg_buy_price),       color: "#374151" }
+                PnlCell { label: t.t("Last Price"),  value: item.last_price.map(|p| format!("{p:.0}")).unwrap_or("—".into()), color: "#374151" }
+                PnlCell { label: t.t("Cost Basis"),  value: fmt_currency(item.cost_basis, &Currency::VND),  color: "#6b7280" }
+                PnlCell { label: t.t("Mkt Value"),   value: item.market_value.map(|v| fmt_currency(v, &Currency::VND)).unwrap_or("—".into()), color: "#6b7280" }
+                PnlCell { label: t.t("Realized P&L"), value: format!("{real_sign}{}", fmt_currency(item.realized_pnl, &Currency::VND)), color: real_color }
             }
         }
     }

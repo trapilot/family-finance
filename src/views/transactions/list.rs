@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 
 use crate::app::AppState;
 use crate::models::{Transaction, TransactionType};
@@ -10,6 +11,7 @@ use super::TxnView;
 
 #[component]
 pub fn TransactionList(view: Signal<TxnView>) -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
 
     let mut txns        = use_signal(|| vec![]);
@@ -70,11 +72,11 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
             // ── Header ──
             div {
                 style: "display:flex; justify-content:space-between; align-items:center;",
-                h1 { style: "margin:0; font-size:20px; font-weight:700; color:#1f2937;", "Transactions" }
+                h1 { style: "margin:0; font-size:20px; font-weight:700; color:#1f2937;", {t.t("Transactions")} }
                 button {
                     style: "background:#6366f1; color:#fff; border:none; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;",
                     onclick: move |_| { view.set(TxnView::Add); },
-                    "+ Add"
+                    {t.t("+ Add")}
                 }
             }
 
@@ -82,7 +84,7 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
             input {
                 style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; background:#fff;",
                 r#type: "text",
-                placeholder: "Search by note…",
+                placeholder: t.t("Search by note…"),
                 value: "{search_note.read()}",
                 oninput: move |e| {
                     search_note.set(e.value());
@@ -93,18 +95,18 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
             div {
                 style: "display:flex; gap:6px; overflow-x:auto; padding-bottom:4px;",
                 FilterChip {
-                    label: "All",
+                    label: t.t("All"),
                     active: filter_type.read().is_none(),
                     onclick: move |_| {
                         filter_type.set(None);
                     }
                 }
                 for (tt, label) in [
-                    (TransactionType::Income,    "Income"),
-                    (TransactionType::Expense,   "Expense"),
-                    (TransactionType::Transfer,  "Transfer"),
-                    (TransactionType::InvestBuy, "Buy"),
-                    (TransactionType::InvestSell,"Sell"),
+                    (TransactionType::Income,    t.t("Income")),
+                    (TransactionType::Expense,   t.t("Expense")),
+                    (TransactionType::Transfer,  t.t("Transfer")),
+                    (TransactionType::InvestBuy, t.t("Buy")),
+                    (TransactionType::InvestSell,t.t("Sell")),
                 ] {
                     {
                         let tt_clone = tt.clone();
@@ -125,7 +127,7 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
             if visible.is_empty() {
                 div {
                     style: "text-align:center; padding:40px 0; color:#9ca3af; font-size:14px;",
-                    "No transactions found"
+                    {t.t("No transactions found")}
                 }
             }
 
@@ -149,14 +151,14 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
                     style: "position:fixed; inset:0; background:rgba(0,0,0,.4); display:flex; align-items:center; justify-content:center; z-index:100;",
                     div {
                         style: "background:#fff; border-radius:16px; padding:24px; margin:16px; max-width:320px; width:100%;",
-                        h3 { style: "margin:0 0 8px; font-size:17px;", "Delete transaction?" }
-                        p  { style: "margin:0 0 20px; font-size:14px; color:#6b7280;", "This will reverse all balance changes." }
+                        h3 { style: "margin:0 0 8px; font-size:17px;", {t.t("Delete transaction?")} }
+                        p  { style: "margin:0 0 20px; font-size:14px; color:#6b7280;", {t.t("This will reverse all balance changes.")} }
                         div {
                             style: "display:flex; gap:10px;",
                             button {
                                 style: "flex:1; padding:10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer; font-size:14px;",
                                 onclick: move |_| { show_confirm_delete.set(None); },
-                                "Cancel"
+                                {t.t("Cancel")}
                             }
                             button {
                                 style: "flex:1; padding:10px; border:none; border-radius:8px; background:#ef4444; color:#fff; cursor:pointer; font-size:14px; font-weight:600;",
@@ -183,7 +185,7 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
                                         
                                     }
                                 },
-                                "Delete"
+                                {t.t("Delete")}
                             }
                         }
                     }
@@ -201,6 +203,7 @@ fn TxnRow(
     on_edit: EventHandler<MouseEvent>,
     on_delete: EventHandler<MouseEvent>,
 ) -> Element {
+    let t = use_i18n();
     let (icon, amount_color) = match txn.txn_type {
         TransactionType::Income     => ("↑", "#10b981"),
         TransactionType::Expense    => ("↓", "#ef4444"),
@@ -210,7 +213,7 @@ fn TxnRow(
     };
     let amount_str = fmt_currency(txn.amount, &txn.currency);
     let date_str   = ts_to_date_str(txn.txn_date);
-    let type_label = format!("{:?}", txn.txn_type).to_lowercase().replace("invest", "");
+    let type_label = t.code(&txn.txn_type.to_string());
     let note       = txn.note.clone().unwrap_or_default();
 
     rsx! {

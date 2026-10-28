@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 
 use crate::app::AppState;
 use crate::models::{Family, Member, NewMember};
@@ -15,6 +16,7 @@ const AVATAR_PRESETS: &[&str] = &[
 
 #[component]
 pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
     let families = use_signal(|| vec![]);
 
@@ -33,7 +35,7 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
     let mut show_id        = use_signal(|| false);
     let error_msg          = use_signal(|| String::new());
 
-    let title = if editing.is_some() { "Edit Member" } else { "New Member" };
+    let title = if editing.is_some() { t.t("Edit Member") } else { t.t("New Member") };
 
     // Load families on mount
     let mut families_effect = families.clone();
@@ -54,7 +56,7 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
 
         move |_: MouseEvent| {
             let name = full_name.read().trim().to_string();
-            if name.is_empty() { error_msg.set("Full name is required".into()); return; }
+            if name.is_empty() { error_msg.set(t.t("Full name is required").into()); return; }
 
             let opt = |s: &str| if s.trim().is_empty() { None } else { Some(s.trim().to_string()) };
 
@@ -125,7 +127,7 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
             }
 
             // ── Avatar picker ──
-            Label { text: "Avatar" }
+            Label { text: t.t("Avatar") }
             div {
                 style: "display:flex; align-items:center; gap:12px; margin-bottom:4px;",
                 div {
@@ -155,11 +157,11 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
             }
 
             // ── Full name ──
-            Label { text: "Full Name *" }
+            Label { text: t.t("Full Name *") }
             TextInput { value: full_name.read().clone(), placeholder: "", on_input: move |v| { full_name.set(v); } }
 
             // ── Family ──
-            Label { text: "Family" }
+            Label { text: t.t("Family") }
             div {
                 style: "display:flex; flex-direction:column; gap:6px;",
                 select {
@@ -175,7 +177,7 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
                     option {
                         value: "",
                         selected: family_id.read().is_none(),
-                        "Unassigned"
+                        {t.t("Unassigned")}
                     }
                     for family in families.read().iter() {
                         option {
@@ -188,10 +190,10 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
             }
 
             // ── Role ──
-            Label { text: "Role" }
+            Label { text: t.t("Role") }
             div {
                 style: "display:flex; gap:8px;",
-                for (r, label, icon) in [(MemberRole::Owner,"Owner","👑"),(MemberRole::Member,"Member","👤")] {
+                for (r, label, icon) in [(MemberRole::Owner,t.t("Owner"),"👑"),(MemberRole::Member,t.t("Member"),"👤")] {
                     {
                         let rc = r.clone();
                         let is_sel = *role.read() == r;
@@ -211,10 +213,10 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
             }
 
             // ── Gender ──
-            Label { text: "Gender" }
+            Label { text: t.t("Gender") }
             div {
                 style: "display:flex; gap:8px;",
-                for (g, label) in [(Some(Gender::Male),"Male"),(Some(Gender::Female),"Female"),(None,"Other")] {
+                for (g, label) in [(Some(Gender::Male),t.t("Male")),(Some(Gender::Female),t.t("Female")),(None,t.t("Other"))] {
                     {
                         let gc = g.clone();
                         let is_sel = *gender.read() == g;
@@ -234,11 +236,11 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
             }
 
             // ── Phone ──
-            Label { text: "Phone" }
+            Label { text: t.t("Phone") }
             TextInput { value: phone.read().clone(), placeholder: "", on_input: move |v| { phone.set(v); } }
 
             // ── Address (the main use-case: copy for Grab/Uber) ──
-            Label { text: "Address" }
+            Label { text: t.t("Address") }
             div {
                 style: "position:relative;",
                 textarea {
@@ -249,11 +251,11 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
                 }
             }
             div { style: "font-size:11px; color:#9ca3af; margin-top:-8px;",
-                "💡 This is the address you will copy when ordering a ride to this person's house."
+                {t.t("💡 This is the address you will copy when ordering a ride to this person's house.")}
             }
 
             // ── Date of birth ──
-            Label { text: "Date of Birth" }
+            Label { text: t.t("Date of Birth") }
             input {
                 style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; background:#fff;",
                 r#type: "date",
@@ -265,29 +267,29 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
             button {
                 style: "text-align:left; border:none; background:transparent; padding:4px 0; font-size:13px; font-weight:600; color:#6366f1; cursor:pointer;",
                 onclick: move |_| show_id.toggle(),
-                if *show_id.read() { "▼ Identity Document (CCCD/CMND)" }
-                else               { "▶ Identity Document (CCCD/CMND)" }
+                if *show_id.read() { {t.t("▼ Identity Document (CCCD/CMND)")} }
+                else               { {t.t("▶ Identity Document (CCCD/CMND)")} }
             }
 
             if *show_id.read() {
                 div {
                     style: "background:#f9fafb; border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:12px;",
-                    Label { text: "ID Number" }
+                    Label { text: t.t("ID Number") }
                     TextInput { value: id_number.read().clone(), placeholder: "", on_input: move |v| { id_number.set(v); } }
-                    Label { text: "Issue Date" }
+                    Label { text: t.t("Issue Date") }
                     input {
                         style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; background:#fff;",
                         r#type: "date",
                         value: "{id_issue_date.read()}",
                         oninput: move |e| { id_issue_date.set(e.value()); },
                     }
-                    Label { text: "Issue Place" }
+                    Label { text: t.t("Issue Place") }
                     TextInput { value: id_issue_place.read().clone(), placeholder: "", on_input: move |v| { id_issue_place.set(v); } }
                 }
             }
 
             // ── Note ──
-            Label { text: "Note (optional)" }
+            Label { text: t.t("Note (optional)") }
             TextInput { value: note.read().clone(), placeholder: "", on_input: move |v| { note.set(v); } }
 
             // ── Error ──
@@ -301,7 +303,7 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
             button {
                 style: "padding:14px; background:#6366f1; color:#fff; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer;",
                 onclick: submit,
-                if editing.is_some() { "Update Member" } else { "Add Member" }
+                if editing.is_some() { {t.t("Update Member")} } else { {t.t("Add Member")} }
             }
         }
     }

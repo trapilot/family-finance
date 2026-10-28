@@ -2,14 +2,19 @@ pub mod backup;
 pub mod categories;
 
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use categories::CategoriesSettings;
 use backup::BackupSettings;
+use crate::app::AppState;
+use crate::i18n::Lang;
+use crate::repository::SettingsRepo;
 
 #[derive(Clone, PartialEq)]
 enum SettingsTab { Categories, Backup }
 
 #[component]
 pub fn Settings() -> Element {
+    let t = use_i18n();
     let mut tab = use_signal(|| SettingsTab::Categories);
 
     rsx! {
@@ -19,13 +24,17 @@ pub fn Settings() -> Element {
             // ── Header ──
             div {
                 style: "padding:16px 16px 0; background:#fff;",
-                h1 { style: "margin:0 0 12px; font-size:20px; font-weight:700; color:#1f2937;", "Settings" }
+                div {
+                    style: "display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 12px;",
+                    h1 { style: "margin:0; font-size:20px; font-weight:700; color:#1f2937;", {t.t("Settings")} }
+                    LanguageSelect {}
+                }
                 div {
                     style: "display:flex; border-bottom:1px solid #f3f4f6;",
-                    for (t, label) in [(SettingsTab::Categories, "Categories"), (SettingsTab::Backup, "Backup")] {
+                    for (tab_kind, label) in [(SettingsTab::Categories, t.t("Categories")), (SettingsTab::Backup, t.t("Backup"))] {
                         {
-                            let is_active = *tab.read() == t;
-                            let t_clone = t.clone();
+                            let is_active = *tab.read() == tab_kind;
+                            let t_clone = tab_kind.clone();
                             rsx! {
                                 button {
                                     style: if is_active {
@@ -47,6 +56,36 @@ pub fn Settings() -> Element {
                 match tab.read().clone() {
                     SettingsTab::Categories => rsx! { CategoriesSettings {} },
                     SettingsTab::Backup     => rsx! { BackupSettings {} },
+                }
+            }
+        }
+    }
+}
+
+// ─── LanguageSelect ───────────────────────────────────────────────────────────
+
+/// Switches the UI language for the whole app and remembers it in the settings table.
+#[component]
+fn LanguageSelect() -> Element {
+    let mut t = use_i18n();
+    let state = use_context::<AppState>();
+    let current = t.lang();
+
+    rsx! {
+        label {
+            style: "display:flex; align-items:center; gap:6px; font-size:13px; color:#6b7280;",
+            "🌐"
+            select {
+                style: "border:1px solid #e5e7eb; border-radius:8px; padding:6px 8px; font-size:14px; background:#fff; color:#1f2937;",
+                aria_label: t.t("Language"),
+                value: current.code(),
+                onchange: move |e| {
+                    let lang = Lang::from_code(&e.value());
+                    let _ = state.with_conn(|conn| SettingsRepo::set_language(conn, lang.code()));
+                    t.set_lang(lang);
+                },
+                for lang in Lang::ALL {
+                    option { value: lang.code(), selected: lang == current, "{lang.native_name()}" }
                 }
             }
         }

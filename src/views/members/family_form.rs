@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use crate::app::AppState;
 use crate::models::Family;
 use crate::repository::FamilyRepo;
@@ -6,9 +7,10 @@ use super::MemberView;
 
 #[component]
 pub fn FamilyForm(view: Signal<MemberView>, editing: Option<Family>) -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
     let is_editing = editing.is_some();
-    let title = if is_editing { "Edit Family" } else { "Add Family" };
+    let title = if is_editing { t.t("Edit Family") } else { t.t("Add Family") };
 
     let mut name = use_signal(|| editing.as_ref().map(|f| f.name.clone()).unwrap_or_default());
     let mut common_address = use_signal(|| editing.as_ref().and_then(|f| f.common_address.clone()).unwrap_or_default());
@@ -35,7 +37,7 @@ pub fn FamilyForm(view: Signal<MemberView>, editing: Option<Family>) -> Element 
             // Name input
             div {
                 style: "display:flex; flex-direction:column; gap:6px;",
-                label { style: "font-size:14px; font-weight:600; color:#374151;", "Family Name" }
+                label { style: "font-size:14px; font-weight:600; color:#374151;", {t.t("Family Name")} }
                 input {
                     value: "{name.read()}",
                     style: "padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; font-size:16px;",
@@ -46,7 +48,7 @@ pub fn FamilyForm(view: Signal<MemberView>, editing: Option<Family>) -> Element 
             // Common address
             div {
                 style: "display:flex; flex-direction:column; gap:6px;",
-                label { style: "font-size:14px; font-weight:600; color:#374151;", "Common Address" }
+                label { style: "font-size:14px; font-weight:600; color:#374151;", {t.t("Common Address")} }
                 textarea {
                     value: "{common_address.read()}",
                     style: "padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; font-size:16px; min-height:80px; resize:vertical;",
@@ -57,7 +59,7 @@ pub fn FamilyForm(view: Signal<MemberView>, editing: Option<Family>) -> Element 
             // Note
             div {
                 style: "display:flex; flex-direction:column; gap:6px;",
-                label { style: "font-size:14px; font-weight:600; color:#374151;", "Note" }
+                label { style: "font-size:14px; font-weight:600; color:#374151;", {t.t("Note")} }
                 textarea {
                     value: "{note.read()}",
                     style: "padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; font-size:16px; min-height:80px; resize:vertical;",
@@ -92,7 +94,7 @@ pub fn FamilyForm(view: Signal<MemberView>, editing: Option<Family>) -> Element 
                     });
                     view.set(MemberView::List);
                 },
-                "Save"
+                {t.t("Save")}
             }
 
             // Delete button (only for editing)
@@ -108,7 +110,7 @@ pub fn FamilyForm(view: Signal<MemberView>, editing: Option<Family>) -> Element 
                             view.set(MemberView::List);
                         }
                     },
-                    "Delete Family"
+                    {t.t("Delete Family")}
                 }
             }
         }

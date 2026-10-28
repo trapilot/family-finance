@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use crate::app::AppState;
 use crate::repository::SettingsRepo;
 
@@ -8,6 +9,7 @@ pub fn PinVerifyModal(
     on_cancel: EventHandler,
     on_verify: EventHandler,
 ) -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
     let mut pin = use_signal(|| String::new());
     let mut error = use_signal(|| None::<String>);
@@ -24,11 +26,11 @@ pub fn PinVerifyModal(
                 on_verify.call(());
             },
             Ok(false) => {
-                error.set(Some("Incorrect PIN!".into()));
+                error.set(Some(t.t("Incorrect PIN!").into()));
                 pin.set(String::new());
             },
             Err(e) => {
-                error.set(Some(format!("Error: {}", e)));
+                error.set(Some(format!("{}: {}", t.t("Error"), e)));
             }
         }
     };
@@ -39,8 +41,8 @@ pub fn PinVerifyModal(
                 style: "position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:200;",
                 div {
                     style: "background:#fff; border-radius:16px; padding:24px; margin:16px; max-width:320px; width:100%;",
-                    h3 { style: "margin:0 0 8px; font-size:18px; color:#1f2937; text-align:center;", "Enter PIN" },
-                    p { style: "margin:0 0 20px; font-size:14px; color:#6b7280; text-align:center;", "Please enter your PIN to continue." },
+                    h3 { style: "margin:0 0 8px; font-size:18px; color:#1f2937; text-align:center;", {t.t("Enter PIN")} },
+                    p { style: "margin:0 0 20px; font-size:14px; color:#6b7280; text-align:center;", {t.t("Please enter your PIN to continue.")} },
 
                     if let Some(err) = error.read().clone() {
                         div { style: "width:100%; background:#fee2e2; border:1px solid #ef4444; border-radius:8px; padding:10px; color:#ef4444; text-align:center; margin-bottom:16px;", "{err}" }
@@ -75,12 +77,12 @@ pub fn PinVerifyModal(
                                     error.set(None);
                                     on_cancel.call(());
                                 },
-                                "Cancel"
+                                {t.t("Cancel")}
                             }
                             button {
                                 style: "flex:1; padding:11px; border:none; border-radius:8px; background:#6366f1; color:#fff; cursor:pointer; font-size:14px; font-weight:700;",
                                 r#type: "submit",
-                                "Verify"
+                                {t.t("Verify")}
                             }
                         }
                     }

@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use crate::app::AppState;
 use crate::repository::SettingsRepo;
 
@@ -7,6 +8,7 @@ pub use verify::PinVerifyModal;
 
 #[component]
 pub fn PinSetup(on_set: EventHandler) -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
     let mut pin = use_signal(|| String::new());
     let mut confirm_pin = use_signal(|| String::new());
@@ -18,12 +20,12 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
         let cp = confirm_pin.read().clone();
         
         if p.len() < 4 {
-            error.set(Some("PIN must be at least 4 digits!".into()));
+            error.set(Some(t.t("PIN must be at least 4 digits!").into()));
             return;
         }
         
         if p != cp {
-            error.set(Some("PINs do not match!".into()));
+            error.set(Some(t.t("PINs do not match!").into()));
             return;
         }
         
@@ -34,7 +36,7 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
                 on_set.call(());
             },
             Err(e) => {
-                error.set(Some(format!("Failed to set PIN: {}", e)));
+                error.set(Some(format!("{}: {}", t.t("Failed to set PIN"), e)));
             }
         }
     };
@@ -43,8 +45,8 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
         div {
             style: "display:flex; flex-direction:column; gap:20px; padding:calc(40px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom)); align-items:center; position:fixed; top:0; right:0; bottom:0; left:0; overflow-y:auto; justify-content:center; font-family:system-ui,sans-serif;",
             div { style: "font-size:40px;", "🔐" }
-            h1 { style: "font-size:24px; font-weight:700; color:#1f2937;", "Set your PIN" },
-            p { style: "font-size:14px; color:#6b7280; text-align:center;", "You will need this PIN to unlock the app and access sensitive features" },
+            h1 { style: "font-size:24px; font-weight:700; color:#1f2937;", {t.t("Set your PIN")} },
+            p { style: "font-size:14px; color:#6b7280; text-align:center;", {t.t("You will need this PIN to unlock the app and access sensitive features")} },
             
             if let Some(err) = error.read().clone() {
                 div {
@@ -60,7 +62,7 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
                     on_submit();
                 },
                 div { style: "display:flex; flex-direction:column; gap:8px;",
-                    label { style: "font-weight:600; font-size:14px; color:#374151;", "Enter PIN" },
+                    label { style: "font-weight:600; font-size:14px; color:#374151;", {t.t("Enter PIN")} },
                     input {
                         r#type: "password",
                         inputmode: "numeric",
@@ -78,7 +80,7 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
                 }
                 
                 div { style: "display:flex; flex-direction:column; gap:8px;",
-                    label { style: "font-weight:600; font-size:14px; color:#374151;", "Confirm PIN" },
+                    label { style: "font-weight:600; font-size:14px; color:#374151;", {t.t("Confirm PIN")} },
                     input {
                         r#type: "password",
                         inputmode: "numeric",
@@ -98,7 +100,7 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
                 button {
                     style: "margin-top:16px; width:100%; padding:14px; background:#6366f1; color:#fff; border:none; border-radius:12px; font-weight:700; font-size:16px; cursor:pointer;",
                     r#type: "submit",
-                    "Continue"
+                    {t.t("Continue")}
                 }
             }
         }
@@ -107,6 +109,7 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
 
 #[component]
 pub fn PinUnlock(on_unlock: EventHandler) -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
     let mut pin = use_signal(|| String::new());
     let mut error = use_signal(|| None::<String>);
@@ -121,11 +124,11 @@ pub fn PinUnlock(on_unlock: EventHandler) -> Element {
                 on_unlock.call(());
             },
             Ok(false) => {
-                error.set(Some("Incorrect PIN!".into()));
+                error.set(Some(t.t("Incorrect PIN!").into()));
                 pin.set(String::new());
             },
             Err(e) => {
-                error.set(Some(format!("Error: {}", e)));
+                error.set(Some(format!("{}: {}", t.t("Error"), e)));
             }
         }
     };
@@ -134,7 +137,7 @@ pub fn PinUnlock(on_unlock: EventHandler) -> Element {
         div {
             style: "display:flex; flex-direction:column; gap:20px; padding:calc(40px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom)); align-items:center; position:fixed; top:0; right:0; bottom:0; left:0; overflow-y:auto; justify-content:center; font-family:system-ui,sans-serif;",
             div { style: "font-size:40px;", "🔒" }
-            h1 { style: "font-size:24px; font-weight:700; color:#1f2937;", "Enter your PIN" },
+            h1 { style: "font-size:24px; font-weight:700; color:#1f2937;", {t.t("Enter your PIN")} },
             
             if let Some(err) = error.read().clone() {
                 div {
@@ -169,7 +172,7 @@ pub fn PinUnlock(on_unlock: EventHandler) -> Element {
                 button {
                     style: "margin-top:16px; width:100%; padding:14px; background:#6366f1; color:#fff; border:none; border-radius:12px; font-weight:700; font-size:16px; cursor:pointer;",
                     r#type: "submit",
-                    "Unlock"
+                    {t.t("Unlock")}
                 }
             }
         }

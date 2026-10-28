@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use rust_decimal::Decimal;
 
 use crate::app::AppState;
@@ -7,6 +8,7 @@ use crate::views::{current_month, fmt_vnd, month_label};
 
 #[component]
 pub fn ExpenseReport() -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
     let (y0, m0) = current_month();
 
@@ -71,13 +73,13 @@ pub fn ExpenseReport() -> Element {
             // ── Total ──
             div {
                 style: "background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
-                div { style: "font-size:11px; color:#9ca3af; text-transform:uppercase; margin-bottom:4px;", "Total Expense" }
+                div { style: "font-size:11px; color:#9ca3af; text-transform:uppercase; margin-bottom:4px;", {t.t("Total Expense")} }
                 div { style: "font-size:24px; font-weight:800; color:#ef4444;", "{fmt_vnd(*total.read())}" }
             }
 
             // ── Category breakdown ──
             if items.read().is_empty() {
-                EmptyState { msg: "No expenses this month" }
+                EmptyState { msg: t.t("No expenses this month") }
             }
 
             for item in items.read().iter() {
@@ -91,6 +93,7 @@ pub fn ExpenseReport() -> Element {
 
 #[component]
 fn CategoryBar(item: ExpenseByCategoryItem, total: Decimal) -> Element {
+    let t = use_i18n();
     use rust_decimal::prelude::ToPrimitive;
 
     let pct = item.share_pct.to_f64().unwrap_or(0.0).max(0.0).min(100.0);
@@ -110,15 +113,15 @@ fn CategoryBar(item: ExpenseByCategoryItem, total: Decimal) -> Element {
                 }
                 div { style: "flex:1;",
                     div { style: "display:flex; justify-content:space-between; align-items:baseline;",
-                        span { style: "font-size:14px; font-weight:600; color:#374151;", "{item.category_name}" }
+                        span { style: "font-size:14px; font-weight:600; color:#374151;", {t.tr(&item.category_name)} }
                         span { style: "font-size:14px; font-weight:700; color:#1f2937;", "{fmt_vnd(item.amount)}" }
                     }
                     div { style: "display:flex; justify-content:space-between; margin-top:1px;",
-                        span { style: "font-size:11px; color:#9ca3af;", "{pct:.1}% of total" }
+                        span { style: "font-size:11px; color:#9ca3af;", {t.t("{pct}% of total").replace("{pct}", &format!("{pct:.1}"))} }
                         if item.is_over_budget {
                             span {
                                 style: "font-size:11px; color:#ef4444; font-weight:600;",
-                                "⚠️ Over budget"
+                                {t.t("⚠️ Over budget")}
                             }
                         } else if let Some(budget) = item.budget_amount {
                             span {
@@ -155,7 +158,7 @@ fn CategoryBar(item: ExpenseByCategoryItem, total: Decimal) -> Element {
                         rsx! {
                             div { style: "margin-top:4px;",
                                 div { style: "font-size:10px; color:#9ca3af; margin-bottom:2px;",
-                                    "Budget usage: {budget_pct:.0}%"
+                                    {t.t("Budget usage: {pct}%").replace("{pct}", &format!("{budget_pct:.0}"))}
                                 }
                                 div {
                                     style: "height:4px; background:#f3f4f6; border-radius:2px; overflow:hidden;",

@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 
 use crate::app::AppState;
 use crate::models::{member::MemberRole, Family, Member};
@@ -7,6 +8,7 @@ use super::MemberView;
 
 #[component]
 pub fn MemberList(view: Signal<MemberView>) -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
     let families_with_members = use_signal(|| vec![]);
     let unassigned_members = use_signal(|| vec![]);
@@ -33,17 +35,17 @@ pub fn MemberList(view: Signal<MemberView>) -> Element {
             // ── Header ──
             div {
                 style: "display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap: wrap;",
-                h1 { style: "margin:0; font-size:20px; font-weight:700; color:#1f2937;", "Families & Members" }
+                h1 { style: "margin:0; font-size:20px; font-weight:700; color:#1f2937;", {t.t("Families & Members")} }
                 div { style: "display:flex; gap:8px;",
                     button {
                         style: "background:#6366f1; color:#fff; border:none; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;",
                         onclick: move |_| { view.set(MemberView::AddFamily); },
-                        "+ Add Family"
+                        {t.t("+ Add Family")}
                     }
                     button {
                         style: "background:#10b981; color:#fff; border:none; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;",
                         onclick: move |_| { view.set(MemberView::Add); },
-                        "+ Add Member"
+                        {t.t("+ Add Member")}
                     }
                 }
             }
@@ -59,7 +61,7 @@ pub fn MemberList(view: Signal<MemberView>) -> Element {
 
             // Unassigned members
             if !unassigned_members.read().is_empty() {
-                GroupLabel { label: "Unassigned Members" }
+                GroupLabel { label: t.t("Unassigned Members") }
                 for m in unassigned_members.read().iter() {
                     ContactRow { member: m.clone(), view }
                 }
@@ -143,6 +145,7 @@ fn MiniContactRow(member: Member, view: Signal<MemberView>) -> Element {
 
 #[component]
 fn ContactRow(member: Member, view: Signal<MemberView>) -> Element {
+    let t = use_i18n();
     let phone_preview   = member.phone.as_deref().unwrap_or("—");
     let address_preview = member.address.as_deref()
         .map(|a| if a.len() > 35 { format!("{}…", &a[..35]) } else { a.to_string() })
@@ -170,7 +173,7 @@ fn ContactRow(member: Member, view: Signal<MemberView>) -> Element {
                     if is_owner {
                         span {
                             style: "font-size:10px; font-weight:700; background:#fef3c7; color:#d97706; border-radius:4px; padding:1px 6px;",
-                            "OWNER"
+                            {t.t("OWNER")}
                         }
                     }
                 }
@@ -198,12 +201,13 @@ fn GroupLabel(label: &'static str) -> Element {
 
 #[component]
 fn EmptyState() -> Element {
+    let t = use_i18n();
     rsx! {
         div {
             style: "text-align:center; padding:56px 0; color:#9ca3af;",
             p { style: "font-size:48px; margin:0;", "👨‍👩‍👧‍👦" }
-            p { style: "font-size:15px; font-weight:600; margin:12px 0 4px; color:#6b7280;", "No families yet" }
-            p { style: "font-size:13px; margin:0;", "Add a family and members to organize contacts!" }
+            p { style: "font-size:15px; font-weight:600; margin:12px 0 4px; color:#6b7280;", {t.t("No families yet")} }
+            p { style: "font-size:13px; margin:0;", {t.t("Add a family and members to organize contacts!")} }
         }
     }
 }

@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 
 use crate::app::AppState;
 use crate::models::{Transaction, Wallet, WalletType};
@@ -9,6 +10,7 @@ use super::{holdings::HoldingsView, WalletView};
 
 #[component]
 pub fn WalletDetail(view: Signal<WalletView>, wallet: Wallet) -> Element {
+    let t = use_i18n();
     let state    = use_context::<AppState>();
     let txns     = use_signal(|| vec![]);
     let mut sub_view = use_signal(|| DetailTab::History);
@@ -52,7 +54,7 @@ pub fn WalletDetail(view: Signal<WalletView>, wallet: Wallet) -> Element {
                         h1 { style: "margin:0; font-size:18px; font-weight:700; color:#1f2937;", "{wallet.name}" }
                         span {
                             style: "font-size:12px; color:#9ca3af;",
-                            "{wallet.wallet_type} · {wallet.currency}"
+                            "{t.code(&wallet.wallet_type.to_string())} · {wallet.currency}"
                             if let Some(ref b) = wallet.broker { " · {b}" }
                         }
                     }
@@ -62,14 +64,14 @@ pub fn WalletDetail(view: Signal<WalletView>, wallet: Wallet) -> Element {
                             let w = wallet.clone();
                             move |_| { view.set(WalletView::Edit(w.clone())); }
                         },
-                        "Edit"
+                        {t.t("Edit")}
                     }
                 }
 
                 // Balance
                 div {
                     style: "background:linear-gradient(135deg, #6366f1, #8b5cf6); border-radius:12px; padding:16px; color:#fff;",
-                    div { style: "font-size:11px; opacity:.8; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px;", "Balance" }
+                    div { style: "font-size:11px; opacity:.8; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px;", {t.t("Balance")} }
                     div { style: "font-size:26px; font-weight:800;", "{balance_str}" }
                 }
             }
@@ -78,7 +80,7 @@ pub fn WalletDetail(view: Signal<WalletView>, wallet: Wallet) -> Element {
             if is_investment {
                 div {
                     style: "display:flex; background:#fff; border-bottom:1px solid #f3f4f6;",
-                    for (tab, label) in [(DetailTab::History, "History"), (DetailTab::Holdings, "Holdings")] {
+                    for (tab, label) in [(DetailTab::History, t.t("History")), (DetailTab::Holdings, t.t("Holdings"))] {
                         {
                             let is_active = *sub_view.read() == tab;
                             let tab_clone = tab.clone();
@@ -119,13 +121,14 @@ enum DetailTab { History, Holdings }
 
 #[component]
 fn TxnHistory(txns: Vec<Transaction>) -> Element {
+    let t = use_i18n();
     rsx! {
         div {
             style: "display:flex; flex-direction:column; gap:8px;",
             if txns.is_empty() {
                 div {
                     style: "text-align:center; padding:40px 0; color:#9ca3af; font-size:14px;",
-                    "No transactions for this wallet"
+                    {t.t("No transactions for this wallet")}
                 }
             }
             for txn in txns.iter() {
@@ -137,6 +140,7 @@ fn TxnHistory(txns: Vec<Transaction>) -> Element {
 
 #[component]
 fn TxnHistoryRow(txn: Transaction) -> Element {
+    let t = use_i18n();
     use crate::models::TransactionType;
     let (icon, color) = match txn.txn_type {
         TransactionType::Income     => ("↑", "#10b981"),
@@ -149,7 +153,7 @@ fn TxnHistoryRow(txn: Transaction) -> Element {
         TransactionType::Income | TransactionType::InvestSell => "+",
         _ => "-",
     };
-    let type_str = format!("{:?}", txn.txn_type);
+    let type_str = t.code(&txn.txn_type.to_string());
     let amount_str = fmt_currency(txn.amount, &txn.currency);
     let date_str   = ts_to_date_str(txn.txn_date);
     let label      = txn.note.as_deref().unwrap_or(&type_str);

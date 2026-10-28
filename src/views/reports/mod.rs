@@ -3,6 +3,7 @@ pub mod investment;
 pub mod timeline;
 
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use expense::ExpenseReport;
 use timeline::TimelineReport;
 use investment::InvestmentReport;
@@ -12,6 +13,7 @@ enum ReportTab { Expense, Timeline, Investment }
 
 #[component]
 pub fn Reports() -> Element {
+    let t = use_i18n();
     let mut tab = use_signal(|| ReportTab::Expense);
 
     rsx! {
@@ -21,17 +23,17 @@ pub fn Reports() -> Element {
             // ── Header ──
             div {
                 style: "padding:16px 16px 0; background:#fff;",
-                h1 { style: "margin:0 0 12px; font-size:20px; font-weight:700; color:#1f2937;", "Reports" }
+                h1 { style: "margin:0 0 12px; font-size:20px; font-weight:700; color:#1f2937;", {t.t("Reports")} }
                 div {
                     style: "display:flex; gap:0; border-bottom:1px solid #f3f4f6;",
-                    for (t, label) in [
-                        (ReportTab::Expense,    "Expense"),
-                        (ReportTab::Timeline,   "Timeline"),
-                        (ReportTab::Investment, "Invest"),
+                    for (tab_kind, label) in [
+                        (ReportTab::Expense,    t.t("Expense")),
+                        (ReportTab::Timeline,   t.t("Timeline")),
+                        (ReportTab::Investment, t.t("Invest")),
                     ] {
                         {
-                            let is_active = *tab.read() == t;
-                            let t_clone = t.clone();
+                            let is_active = *tab.read() == tab_kind;
+                            let t_clone = tab_kind.clone();
                             rsx! {
                                 button {
                                     style: if is_active {

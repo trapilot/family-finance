@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use crate::i18n::use_i18n;
 use rust_decimal::Decimal;
 
 use crate::app::AppState;
@@ -11,6 +12,7 @@ use crate::views::{current_month, fmt_currency, fmt_gold, fmt_usd, fmt_vnd, mont
 
 #[component]
 pub fn Dashboard() -> Element {
+    let t = use_i18n();
     let state = use_context::<AppState>();
     let (year, month) = current_month();
 
@@ -81,13 +83,13 @@ pub fn Dashboard() -> Element {
             // ── Monthly Summary ──
             div {
                 style: "background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.08);",
-                h2 { style: "margin:0 0 12px; font-size:15px; font-weight:600; color:#374151;", "This Month" }
+                h2 { style: "margin:0 0 12px; font-size:15px; font-weight:600; color:#374151;", {t.t("This Month")} }
                 div {
                     style: "display:grid; grid-template-columns:1fr 1fr; gap:10px;",
-                    SummaryRow { label: "Income",       value: fmt_vnd(s.income),       color: "#10b981" }
-                    SummaryRow { label: "Expense",      value: fmt_vnd(s.expense),      color: "#ef4444" }
-                    SummaryRow { label: "Savings",      value: fmt_vnd(s.savings),      color: "#6366f1" }
-                    SummaryRow { label: "Savings Rate", value: format!("{:.1}%", s.savings_rate), color: "#f59e0b" }
+                    SummaryRow { label: t.t("Income"),       value: fmt_vnd(s.income),       color: "#10b981" }
+                    SummaryRow { label: t.t("Expense"),      value: fmt_vnd(s.expense),      color: "#ef4444" }
+                    SummaryRow { label: t.t("Savings"),      value: fmt_vnd(s.savings),      color: "#6366f1" }
+                    SummaryRow { label: t.t("Savings Rate"), value: format!("{:.1}%", s.savings_rate), color: "#f59e0b" }
                 }
             }
 
@@ -95,11 +97,11 @@ pub fn Dashboard() -> Element {
             if !alerts.read().is_empty() {
                 div {
                     style: "background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.08);",
-                    h2 { style: "margin:0 0 10px; font-size:15px; font-weight:600; color:#ef4444;", "⚠️ Overspending" }
+                    h2 { style: "margin:0 0 10px; font-size:15px; font-weight:600; color:#ef4444;", {t.t("⚠️ Overspending")} }
                     for alert in alerts.read().iter() {
                         div {
                             style: "display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f3f4f6;",
-                            span { style: "font-size:13px; color:#374151;", "{alert.category_name}" }
+                            span { style: "font-size:13px; color:#374151;", {t.tr(&alert.category_name)} }
                             div {
                                 style: "text-align:right;",
                                 div { style: "font-size:12px; color:#ef4444; font-weight:600;", "+{fmt_vnd(alert.overage)}" }
@@ -113,9 +115,9 @@ pub fn Dashboard() -> Element {
             // ── Recent Transactions ──
             div {
                 style: "background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.08);",
-                h2 { style: "margin:0 0 10px; font-size:15px; font-weight:600; color:#374151;", "Recent" }
+                h2 { style: "margin:0 0 10px; font-size:15px; font-weight:600; color:#374151;", {t.t("Recent")} }
                 if recent.read().is_empty() {
-                    p { style: "font-size:13px; color:#9ca3af; text-align:center; padding:16px 0;", "No transactions yet" }
+                    p { style: "font-size:13px; color:#9ca3af; text-align:center; padding:16px 0;", {t.t("No transactions yet")} }
                 }
                 for txn in recent.read().iter() {
                     RecentTxnRow { txn: txn.clone() }
@@ -151,6 +153,7 @@ fn SummaryRow(label: &'static str, value: String, color: &'static str) -> Elemen
 
 #[component]
 fn RecentTxnRow(txn: Transaction) -> Element {
+    let t = use_i18n();
     let (icon, color) = match txn.txn_type {
         crate::models::TransactionType::Income    => ("↑", "#10b981"),
         crate::models::TransactionType::Expense   => ("↓", "#ef4444"),
@@ -171,7 +174,7 @@ fn RecentTxnRow(txn: Transaction) -> Element {
                     "{icon}"
                 }
                 div {
-                    div { style: "font-size:13px; font-weight:500; color:#374151;", "{txn.txn_type}" }
+                    div { style: "font-size:13px; font-weight:500; color:#374151;", {t.code(&txn.txn_type.to_string())} }
                     div { style: "font-size:11px; color:#9ca3af;", "{date_str}" }
                 }
             }

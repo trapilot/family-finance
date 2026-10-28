@@ -1,0 +1,208 @@
+use dioxus::prelude::*;
+use rust_decimal::Decimal;
+use std::time::Duration;
+
+use crate::app::AppState;
+use crate::i18n::use_i18n;
+use crate::models::{Currency, ExchangeRate};
+use crate::repository::RateRepo;
+use crate::services::RateService;
+use crate::views::{fmt_vnd, AmountInput};
+
+/// How often the background task checks for stale rates (a fetch only happens when stale)
+const CHECK_EVERY: Duration = Duration::from_secs(15 * 60);
+
+/// Latest exchange rates, shared by every screen
+#[derive(Clone, Copy, PartialEq)]
+pub struct Rates(pub Signal<Vec<ExchangeRate>>);
+
+fn load_rates(state: &AppState) -> Vec<ExchangeRate> {
+    state.with_conn(|conn| RateRepo::list(conn).unwrap_or_default())
+}
+
+/// Provide `Rates` to the tree and keep them fresh while the app is open.
+pub fn use_rates_provider() -> Rates {
+    let state = use_context::<AppState>();
+    let mut rates = use_signal({
+        let state = state.clone();
+        move || load_rates(&state)
+    });
+
+    use_future(move || {
+        let state = state.clone();
+        async move {
+            loop {
+                if RateService::refresh(state.db.clone(), false).await {
+                    rates.set(load_rates(&state));
+                }
+                tokio::time::sleep(CHECK_EVERY).await;
+            }
+        }
+    });
+
+    use_context_provider(|| Rates(rates))
+}
+
+// ─── ConvertedTotal ───────────────────────────────────────────────────────────
+
+/// "≈ total in VND" card under the per-currency totals, with the rates used.
+/// Each rate can be typed in by hand; "Update rates" fetches the latest online.
+#[component]
+pub fn ConvertedTotal(vnd: Decimal, usd: Decimal, gold: Decimal) -> Element {
+    let t = use_i18n();
+    let state = use_context::<AppState>();
+    let Rates(mut rates) = use_context::<Rates>();
+    let mut refreshing = use_signal(|| false);
+    // Result of the last "Update rates" tap: Some(true) updated, Some(false) failed
+    let mut refresh_result = use_signal(|| None::<bool>);
+
+    let (total, missing) = RateService::total_vnd(vnd, usd, gold, &rates.read());
+    let missing_names: Vec<&str> = missing.iter().map(|c| match c {
+        Currency::GOLD => t.t("Gold"),
+        _              => "USD",
+    }).collect();
+
+    let on_refresh = move |_| {
+        if refreshing() { return; }
+        refreshing.set(true);
+        refresh_result.set(None);
+        let state = state.clone();
+        spawn(async move {
+            let updated = RateService::refresh(state.db.clone(), true).await;
+            if updated {
+                rates.set(load_rates(&state));
+            }
+            refresh_result.set(Some(updated));
+            refreshing.set(false);
+        });
+    };
+
+    rsx! {
+        div {
+            style: "background:#fff; border-radius:12px; padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,.08); display:flex; flex-direction:column; gap:8px;",
+            div {
+                div { style: "font-size:10px; font-weight:600; color:#9ca3af; text-transform:uppercase;", {t.t("Total (converted)")} }
+                div { style: "font-size:18px; font-weight:800; color:#1f2937; margin-top:2px; overflow-wrap:anywhere;", "≈ {fmt_vnd(total)}" }
+                if !missing_names.is_empty() {
+                    div { style: "font-size:11px; color:#f59e0b; margin-top:2px;",
+                        {t.t("Not included (no rate yet): {list}").replace("{list}", &missing_names.join(", "))}
+                    }
+                }
+            }
+
+            RateRow { currency: Currency::USD,  unit: "USD" }
+            RateRow { currency: Currency::GOLD, unit: t.t("chỉ") }
+
+            button {
+                style: "border:1px solid #c7d2fe; background:#eef2ff; color:#4f46e5; border-radius:8px; padding:8px; font-size:13px; font-weight:600; cursor:pointer;",
+                disabled: refreshing(),
+                onclick: on_refresh,
+                if refreshing() { {t.t("Updating…")} } else { {t.t("↻ Update rates")} }
+            }
+            match refresh_result() {
+                Some(true)  => rsx! { div { style: "font-size:11px; color:#10b981;", {t.t("Rates updated")} } },
+                Some(false) => rsx! { div { style: "font-size:11px; color:#ef4444;", {t.t("Couldn't update — check your internet connection")} } },
+                None        => rsx! {},
+            }
+        }
+    }
+}
+
+// ─── RateRow ──────────────────────────────────────────────────────────────────
+
+/// One rate with its source/time and an inline editor for typing it in manually.
+#[component]
+fn RateRow(currency: Currency, unit: &'static str) -> Element {
+    let t = use_i18n();
+    let state = use_context::<AppState>();
+    let Rates(mut rates) = use_context::<Rates>();
+    let mut editing = use_signal(|| false);
+    let mut input = use_signal(String::new);
+    let mut error = use_signal(|| None::<&'static str>);
+
+    let rate = rates.read().iter().find(|r| r.currency == currency).cloned();
+    let value = rate.as_ref().map(|r| fmt_vnd(r.rate_vnd)).unwrap_or_else(|| "—".into());
+    let meta = rate.as_ref().map(|r| {
+        let source = if r.source == "manual" { t.t("Manual") } else { "Yahoo" };
+        format!("{source} · {}", fmt_time(r.fetched_at))
+    });
+
+    let start_edit = {
+        let rate = rate.clone();
+        move |_| {
+            // Prefill with the current whole-VND value
+            input.set(rate.as_ref().map(|r| r.rate_vnd.round().to_string()).unwrap_or_default());
+            error.set(None);
+            editing.set(true);
+        }
+    };
+
+    let currency_save = currency.clone();
+    let save = move |_| {
+        let rate_vnd = match input.read().parse::<Decimal>() {
+            Ok(v) if v > Decimal::ZERO => v,
+            _ => { error.set(Some(t.t("Enter a rate greater than 0"))); return; }
+        };
+        // Saved like a fetched rate; the next online update replaces it when stale
+        match state.with_conn(|conn| RateService::save_manual(conn, currency_save.clone(), rate_vnd)) {
+            Ok(_) => {
+                rates.set(load_rates(&state));
+                editing.set(false);
+            }
+            Err(_) => error.set(Some(t.t("Save failed"))),
+        }
+    };
+
+    rsx! {
+        if editing() {
+            div { style: "display:flex; flex-direction:column; gap:6px;",
+                div { style: "font-size:12px; color:#6b7280;", "1 {unit} = ? ₫" }
+                div { style: "display:flex; gap:6px; align-items:center;",
+                    AmountInput {
+                        style: "flex:1; min-width:0; border:1px solid #6366f1; border-radius:8px; padding:8px 10px; font-size:14px; outline:none;",
+                        value: input(),
+                        oninput: move |v| input.set(v),
+                    }
+                    button {
+                        style: "padding:8px 12px; background:#6366f1; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;",
+                        onclick: save,
+                        {t.t("Save")}
+                    }
+                    button {
+                        style: "padding:8px 10px; background:#f3f4f6; color:#6b7280; border:none; border-radius:8px; font-size:13px; cursor:pointer;",
+                        onclick: move |_| editing.set(false),
+                        "✕"
+                    }
+                }
+                if let Some(err) = error() {
+                    div { style: "font-size:11px; color:#ef4444;", "{err}" }
+                }
+            }
+        } else {
+            div { style: "display:flex; align-items:center; gap:8px;",
+                div { style: "flex:1; min-width:0;",
+                    div { style: "font-size:13px; font-weight:600; color:#374151; overflow-wrap:anywhere;", "1 {unit} = {value}" }
+                    div { style: "font-size:11px; color:#9ca3af;",
+                        match meta {
+                            Some(meta) => rsx! { "{meta}" },
+                            None       => rsx! { {t.t("No rate yet — update online or tap ✏️ to enter it")} },
+                        }
+                    }
+                }
+                button {
+                    style: "border:none; background:transparent; font-size:16px; cursor:pointer; padding:4px; flex-shrink:0;",
+                    aria_label: t.t("Edit"),
+                    onclick: start_edit,
+                    "✏️"
+                }
+            }
+        }
+    }
+}
+
+fn fmt_time(ts: i64) -> String {
+    use chrono::{Local, TimeZone};
+    Local.timestamp_opt(ts, 0).single()
+        .map(|dt| dt.format("%H:%M %d/%m").to_string())
+        .unwrap_or_default()
+}

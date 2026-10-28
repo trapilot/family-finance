@@ -5,6 +5,7 @@ use crate::app::AppState;
 use crate::models::{Currency, Wallet, WalletType};
 use crate::repository::WalletRepo;
 use crate::views::{fmt_currency, fmt_gold, fmt_usd, fmt_vnd};
+use crate::views::rates::ConvertedTotal;
 use super::WalletView;
 
 #[component]
@@ -73,6 +74,7 @@ pub fn WalletList(view: Signal<WalletView>) -> Element {
                 TotalCard { label: "USD",  value: fmt_usd(total_usd),   color: "#10b981" }
                 TotalCard { label: "GOLD", value: fmt_gold(total_gold), color: "#f59e0b" }
             }
+            ConvertedTotal { vnd: total_vnd, usd: total_usd, gold: total_gold }
 
             // ── Wallets grouped by type: Cash > Bank > E-Wallet > Investment > Loan ──
             for (title, group) in groups.iter() {

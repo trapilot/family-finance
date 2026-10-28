@@ -6,6 +6,7 @@ use crate::app::AppState;
 use crate::models::Transaction;
 use crate::repository::TransactionRepo;
 use crate::services::ReportService;
+use crate::views::rates::ConvertedTotal;
 use crate::views::{current_month, fmt_currency, fmt_gold, fmt_usd, fmt_vnd, month_label, ts_to_date_str};
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
@@ -79,6 +80,7 @@ pub fn Dashboard() -> Element {
                 NetWorthCard { label: "USD", value: fmt_usd(net_worth.read().usd),    color: "#10b981" }
                 NetWorthCard { label: "GOLD", value: fmt_gold(net_worth.read().gold), color: "#f59e0b" }
             }
+            ConvertedTotal { vnd: net_worth.read().vnd, usd: net_worth.read().usd, gold: net_worth.read().gold }
 
             // ── Monthly Summary ──
             div {

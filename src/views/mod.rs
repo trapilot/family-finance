@@ -5,6 +5,7 @@ pub mod transactions;
 pub mod wallets;
 pub mod members;
 pub mod pin;
+pub mod rates;
 
 use dioxus::prelude::*;
 

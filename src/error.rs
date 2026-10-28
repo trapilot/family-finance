@@ -28,6 +28,9 @@ pub enum AppError {
 
     #[error("Bcrypt error: {0}")]
     Bcrypt(#[from] bcrypt::BcryptError),
+
+    #[error("Network error: {0}")]
+    Network(String),
 }
 
 pub type Result<T> = std::result::Result<T, AppError>;

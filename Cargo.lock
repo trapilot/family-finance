@@ -1738,12 +1738,14 @@ dependencies = [
  "chrono",
  "dioxus",
  "once_cell",
+ "reqwest",
  "rusqlite",
  "rust_decimal",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
  "time",
+ "tokio",
  "uuid",
 ]
 

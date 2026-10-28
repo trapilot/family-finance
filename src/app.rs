@@ -108,6 +108,7 @@ pub fn App() -> Element {
 #[component]
 fn MainApp() -> Element {
     let active_tab = use_signal(|| Tab::Dashboard);
+    crate::views::rates::use_rates_provider();
 
     rsx! {
         div {

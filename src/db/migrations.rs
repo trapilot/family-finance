@@ -18,6 +18,10 @@ pub fn run(conn: &Connection) -> Result<()> {
         migrate_v4(conn)?;
         set_version(conn, 4)?;
     }
+    if version < 5 {
+        migrate_v5(conn)?;
+        set_version(conn, 5)?;
+    }
     Ok(())
 }
 
@@ -163,5 +167,18 @@ fn migrate_v4(conn: &Connection) -> Result<()> {
     conn.execute_batch("
         INSERT OR IGNORE INTO settings (key, value) VALUES ('app_version', '');
         INSERT OR IGNORE INTO settings (key, value) VALUES ('language', 'en');
+    ")
+}
+
+// ─── V5 — exchange rates (latest value per currency, fetched online) ────────
+
+fn migrate_v5(conn: &Connection) -> Result<()> {
+    conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS exchange_rates (
+            currency   TEXT PRIMARY KEY,   -- 'USD' / 'GOLD'
+            rate_vnd   REAL NOT NULL,      -- VND for 1 unit (1 USD, 1 chỉ gold)
+            source     TEXT NOT NULL,      -- where it came from, e.g. 'yahoo'
+            fetched_at INTEGER NOT NULL    -- unix seconds
+        );
     ")
 }

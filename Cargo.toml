@@ -20,7 +20,13 @@ once_cell     = "1"
 thiserror     = "1"
 time          = "=0.3.36"
 bcrypt        = "0.15"
+# Exchange-rate fetching: rustls (no OpenSSL) so it cross-compiles for iOS/Android
+reqwest       = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio         = { version = "1", features = ["time"] }
  
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
+
 [profile.release]
 opt-level = 3
 lto       = true

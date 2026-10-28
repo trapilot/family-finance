@@ -11,6 +11,10 @@ impl MemberRepo {
         "id, family_id, full_name, birth_date, gender, phone, id_number,
          id_issue_date, id_issue_place, address, role, avatar_emoji, note, created_at";
 
+    /// Owners first, then by date of birth (oldest first, unknown last), then name
+    const ORDER: &'static str =
+        "CASE WHEN role = 'owner' THEN 0 ELSE 1 END, birth_date IS NULL, birth_date ASC, full_name ASC";
+
     pub fn create(conn: &Connection, input: &NewMember) -> Result<Member> {
         let id  = Uuid::new_v4().to_string();
         let now = now_ts();
@@ -53,8 +57,8 @@ impl MemberRepo {
 
     pub fn list(conn: &Connection) -> Result<Vec<Member>> {
         let sql = format!(
-            "SELECT {} FROM members ORDER BY role ASC, full_name ASC",
-            Self::SELECT_COLS
+            "SELECT {} FROM members ORDER BY {}",
+            Self::SELECT_COLS, Self::ORDER
         );
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map([], Member::from_row)?;
@@ -63,8 +67,8 @@ impl MemberRepo {
 
     pub fn list_by_family(conn: &Connection, family_id: &str) -> Result<Vec<Member>> {
         let sql = format!(
-            "SELECT {} FROM members WHERE family_id = ?1 ORDER BY role ASC, full_name ASC",
-            Self::SELECT_COLS
+            "SELECT {} FROM members WHERE family_id = ?1 ORDER BY {}",
+            Self::SELECT_COLS, Self::ORDER
         );
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map([family_id], Member::from_row)?;
@@ -73,8 +77,8 @@ impl MemberRepo {
 
     pub fn list_unassigned(conn: &Connection) -> Result<Vec<Member>> {
         let sql = format!(
-            "SELECT {} FROM members WHERE family_id IS NULL ORDER BY role ASC, full_name ASC",
-            Self::SELECT_COLS
+            "SELECT {} FROM members WHERE family_id IS NULL ORDER BY {}",
+            Self::SELECT_COLS, Self::ORDER
         );
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map([], Member::from_row)?;
@@ -134,4 +138,32 @@ impl MemberRepo {
 fn now_ts() -> i64 {
     use std::time::{SystemTime, UNIX_EPOCH};
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::member::MemberRole;
+
+    fn add(conn: &Connection, name: &str, role: MemberRole, birth_date: Option<i64>) {
+        MemberRepo::create(conn, &NewMember {
+            family_id: None, full_name: name.into(), birth_date, gender: None, phone: None,
+            id_number: None, id_issue_date: None, id_issue_place: None, address: None,
+            role, avatar_emoji: None, note: None,
+        }).unwrap();
+    }
+
+    #[test]
+    fn owners_first_then_oldest_first_unknown_birth_last() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::run(&conn).unwrap();
+        add(&conn, "Kid",        MemberRole::Member, Some(1_400_000_000));
+        add(&conn, "No DOB",     MemberRole::Member, None);
+        add(&conn, "Grandma",    MemberRole::Member, Some(-300_000_000));
+        add(&conn, "Owner",      MemberRole::Owner,  Some(600_000_000));
+        add(&conn, "Mom",        MemberRole::Member, Some(700_000_000));
+
+        let names: Vec<String> = MemberRepo::list_unassigned(&conn).unwrap().into_iter().map(|m| m.full_name).collect();
+        assert_eq!(names, ["Owner", "Grandma", "Mom", "Kid", "No DOB"]);
+    }
 }

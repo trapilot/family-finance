@@ -15,38 +15,25 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
     let state = use_context::<AppState>();
 
     let mut txns        = use_signal(|| vec![]);
-    let mut filter_type = use_signal(|| None::<TransactionType>);
+    // Types shown; toggled by the chips (at least one stays selected)
+    let mut filter_types = use_signal(|| vec![
+        TransactionType::Income,
+        TransactionType::Expense,
+        TransactionType::Transfer,
+    ]);
     let mut search_note = use_signal(|| String::new());
     let mut show_confirm_delete = use_signal(|| None::<String>); // holds txn id
 
     // ── Load ──
-    // let mut load = {
-    //     let state = state.clone();
-    //     let mut txns = txns.clone();
-    //     let filter_type = filter_type.clone();
-    //     move || {
-    //         let ft = filter_type.read().clone();
-    //         state.with_conn(|conn| {
-    //             if let Ok(list) = TransactionRepo::list(conn, &TxnFilter {
-    //                 txn_type: ft,
-    //                 limit: Some(100),
-    //                 ..Default::default()
-    //             }) {
-    //                 txns.set(list);
-    //             }
-    //         });
-    //     }
-    // };
-
     let mut txns_effect = txns.clone();
     let state_effect = state.clone();
 
     use_effect(move || {
-        let ft = filter_type.read().clone();
+        let types = filter_types.read().clone();
 
         state_effect.with_conn(|conn| {
             if let Ok(list) = TransactionRepo::list(conn, &TxnFilter {
-                txn_type: ft,
+                txn_types: types,
                 limit: Some(100),
                 ..Default::default()
             }) {
@@ -91,16 +78,9 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
                 },
             }
 
-            // ── Type Filter ──
+            // ── Type Filter (multi-select) ──
             div {
                 style: "display:flex; gap:6px; overflow-x:auto; padding-bottom:4px;",
-                FilterChip {
-                    label: t.t("All"),
-                    active: filter_type.read().is_none(),
-                    onclick: move |_| {
-                        filter_type.set(None);
-                    }
-                }
                 for (tt, label) in [
                     (TransactionType::Income,    t.t("Income")),
                     (TransactionType::Expense,   t.t("Expense")),
@@ -113,9 +93,15 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
                         rsx! {
                             FilterChip {
                                 label,
-                                active: filter_type.read().as_ref() == Some(&tt),
+                                active: filter_types.read().contains(&tt),
                                 onclick: move |_| {
-                                    filter_type.set(Some(tt_clone.clone()));
+                                    let mut types = filter_types.write();
+                                    if let Some(pos) = types.iter().position(|x| *x == tt_clone) {
+                                        // Keep at least one type selected
+                                        if types.len() > 1 { types.remove(pos); }
+                                    } else {
+                                        types.push(tt_clone.clone());
+                                    }
                                 }
                             }
                         }
@@ -171,11 +157,11 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
                                         });
                                         show_confirm_delete.set(None);
                                         
-                                        let ft = filter_type.read().clone();
+                                        let types = filter_types.read().clone();
 
                                         state.with_conn(|conn| {
                                             if let Ok(list) = TransactionRepo::list(conn, &TxnFilter {
-                                                txn_type: ft,
+                                                txn_types: types,
                                                 limit: Some(100),
                                                 ..Default::default()
                                             }) {
@@ -265,7 +251,7 @@ fn FilterChip(label: &'static str, active: bool, onclick: EventHandler<MouseEven
                 "border:1px solid #e5e7eb; border-radius:20px; padding:6px 14px; font-size:12px; cursor:pointer; white-space:nowrap; background:#fff; color:#6b7280;"
             },
             onclick: move |e| { onclick.call(e); },
-            "{label}"
+            if active { "✓ {label}" } else { "{label}" }
         }
     }
 }

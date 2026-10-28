@@ -10,6 +10,8 @@ pub struct TxnFilter {
     pub wallet_id:    Option<String>,
     pub category_id:  Option<String>,
     pub txn_type:     Option<TransactionType>,
+    /// Any of these types (ignored when empty)
+    pub txn_types:    Vec<TransactionType>,
     pub date_from:    Option<i64>,
     pub date_to:      Option<i64>,
     pub limit:        Option<u32>,
@@ -91,6 +93,16 @@ impl TransactionRepo {
         if let Some(tt) = &filter.txn_type {
             conditions.push(format!("txn_type = ?{}", params.len() + 1));
             params.push(Box::new(tt.to_string()));
+        }
+        if !filter.txn_types.is_empty() {
+            let placeholders: Vec<String> = filter.txn_types.iter()
+                .enumerate()
+                .map(|(i, _)| format!("?{}", params.len() + 1 + i))
+                .collect();
+            conditions.push(format!("txn_type IN ({})", placeholders.join(", ")));
+            for tt in &filter.txn_types {
+                params.push(Box::new(tt.to_string()));
+            }
         }
         if let Some(from) = filter.date_from {
             conditions.push(format!("txn_date >= ?{}", params.len() + 1));
@@ -200,4 +212,42 @@ pub fn month_bounds(year: i32, month: u32) -> (i64, i64) {
     let start_ts = Utc.from_utc_datetime(&start.and_hms_opt(0, 0, 0).unwrap()).timestamp();
     let end_ts   = Utc.from_utc_datetime(&end.and_hms_opt(0, 0, 0).unwrap()).timestamp() - 1;
     (start_ts, end_ts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{Currency, IncomeType, NewWallet, WalletType};
+    use crate::repository::{CategoryRepo, WalletRepo};
+    use crate::services::TransactionService;
+    use rust_decimal::Decimal;
+
+    #[test]
+    fn filters_by_any_of_several_types() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::run(&conn).unwrap();
+        CategoryRepo::seed_defaults(&conn).unwrap();
+        let wallet = |name: &str| WalletRepo::create(&conn, &NewWallet {
+            name: name.into(), wallet_type: WalletType::Bank, currency: Currency::VND,
+            balance: Decimal::from(1_000_000), broker: None, icon: None, color: None, sort_order: 0,
+        }).unwrap().id;
+        let (a, b) = (wallet("A"), wallet("B"));
+        let category = CategoryRepo::list(&conn).unwrap()[0].id.clone();
+        let amount = Decimal::from(1_000);
+
+        TransactionService::execute(&conn, &NewTransaction::income(&a, amount, Currency::VND, IncomeType::Salary, 1)).unwrap();
+        TransactionService::execute(&conn, &NewTransaction::expense(&a, amount, Currency::VND, &category, 2)).unwrap();
+        TransactionService::execute(&conn, &NewTransaction::transfer(&a, amount, Currency::VND, &b, amount, Currency::VND, 3)).unwrap();
+
+        let types = |filter: Vec<TransactionType>| -> Vec<TransactionType> {
+            let mut got: Vec<_> = TransactionRepo::list(&conn, &TxnFilter { txn_types: filter, ..Default::default() })
+                .unwrap().into_iter().map(|t| t.txn_type).collect();
+            got.sort_by_key(|t| t.to_string());
+            got
+        };
+        assert_eq!(types(vec![TransactionType::Income, TransactionType::Transfer]),
+                   vec![TransactionType::Income, TransactionType::Transfer]);
+        assert_eq!(types(vec![TransactionType::Expense]), vec![TransactionType::Expense]);
+        assert_eq!(types(vec![]).len(), 3, "empty = no type filter");
+    }
 }

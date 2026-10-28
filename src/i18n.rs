@@ -154,7 +154,6 @@ fn vi(en: &str) -> Option<&'static str> {
         "Share"                                => "Chia sẻ",
         "Revert"                               => "Khôi phục",
         "Error"                                => "Lỗi",
-        "All"                                  => "Tất cả",
         "Set your PIN"                         => "Tạo mã PIN",
         "You will need this PIN to unlock the app and access sensitive features" => "Bạn sẽ cần mã PIN này để mở khoá ứng dụng và truy cập các tính năng quan trọng",
         "Enter PIN"                            => "Nhập mã PIN",

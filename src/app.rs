@@ -99,9 +99,10 @@ fn MainApp() -> Element {
 
     rsx! {
         div {
-            style: "display:flex; flex-direction:column; height:100%; padding-top:env(safe-area-inset-top); padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); font-family:system-ui,sans-serif; background:#f5f5f5;",
+            // Pinned to the screen edges: content scrolls, tab bar stays at the bottom
+            style: "position:fixed; top:0; right:0; bottom:0; left:0; display:flex; flex-direction:column; padding-top:env(safe-area-inset-top); padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); font-family:system-ui,sans-serif; background:#f5f5f5;",
             div {
-                style: "flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch;",
+                style: "position:relative; flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;",
                 match *active_tab.read() {
                     Tab::Dashboard    => rsx! { Dashboard {} },
                     Tab::Transactions => rsx! { Transactions {} },

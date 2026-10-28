@@ -99,9 +99,9 @@ fn MainApp() -> Element {
 
     rsx! {
         div {
-            style: "display:flex; flex-direction:column; height:100vh; font-family:system-ui,sans-serif; background:#f5f5f5;",
+            style: "display:flex; flex-direction:column; height:100%; padding-top:env(safe-area-inset-top); padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); font-family:system-ui,sans-serif; background:#f5f5f5;",
             div {
-                style: "flex:1; overflow-y:auto;",
+                style: "flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch;",
                 match *active_tab.read() {
                     Tab::Dashboard    => rsx! { Dashboard {} },
                     Tab::Transactions => rsx! { Transactions {} },
@@ -131,7 +131,7 @@ fn BottomTabBar(active_tab: Signal<Tab>) -> Element {
 
     rsx! {
         div {
-            style: "display:flex; background:#fff; border-top:1px solid #e0e0e0; padding:8px 0 12px;",
+            style: "display:flex; flex-shrink:0; background:#fff; border-top:1px solid #e0e0e0; padding:8px 0 calc(12px + env(safe-area-inset-bottom));",
             for (tab, icon, label) in tabs.iter().cloned() {
                 {
                     let is_active = *active_tab.read() == tab;

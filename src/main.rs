@@ -40,5 +40,26 @@ fn main() {
             .expect("Failed to seed default categories");
     }
 
+    launch();
+}
+
+/// Serve our own index.html so the page fills the device screen and can respect the safe areas.
+#[cfg(any(feature = "mobile", feature = "desktop"))]
+fn launch() {
+    // `mobile` and `desktop` both re-export dioxus_desktop
+    #[cfg(feature = "mobile")]
+    use dioxus::mobile::Config;
+    #[cfg(not(feature = "mobile"))]
+    use dioxus::desktop::Config;
+
+    let cfg = Config::new()
+        .with_custom_index(include_str!("index.html").to_string())
+        .with_background_color((245, 245, 245, 255));
+
+    dioxus::LaunchBuilder::new().with_cfg(cfg).launch(app::App);
+}
+
+#[cfg(not(any(feature = "mobile", feature = "desktop")))]
+fn launch() {
     dioxus::launch(app::App);
 }

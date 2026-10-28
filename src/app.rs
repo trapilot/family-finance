@@ -139,12 +139,13 @@ fn BottomTabBar(active_tab: Signal<Tab>) -> Element {
                     let tab_clone = tab.clone();
                     rsx! {
                         button {
-                            style: "flex:1; border:none; background:transparent; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 0;",
+                            // min-width:0 + overflow:hidden keep all 6 tabs inside the screen width
+                            style: "flex:1 1 0; min-width:0; overflow:hidden; border:none; background:transparent; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 0;",
                             onclick: move |_| { active_tab.set(tab_clone.clone()); },
-                            span { style: "font-size:20px; line-height:1;", "{icon}" }
+                            span { style: "font-size:20px; line-height:1; white-space:nowrap;", "{icon}" }
                             span {
-                                style: if is_active { "font-size:9px; font-weight:700; color:#6366f1;" }
-                                       else { "font-size:9px; color:#9ca3af;" },
+                                style: if is_active { "max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; font-weight:700; color:#6366f1;" }
+                                       else { "max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:9px; color:#9ca3af;" },
                                 "{label}"
                             }
                         }

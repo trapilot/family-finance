@@ -12,15 +12,11 @@ pub fn PinVerifyModal(
     let mut pin = use_signal(|| String::new());
     let mut error = use_signal(|| None::<String>);
 
-    // Clone state for each closure that uses it!
-    let state_submit = state.clone();
-    let state_keydown = state.clone();
-
-    let on_submit = move |_: MouseEvent| {
+    let mut on_submit = move || {
         let p = pin.read().clone();
-        
-        let result = state_submit.with_conn(|conn| SettingsRepo::verify_pin(conn, &p));
-        
+
+        let result = state.with_conn(|conn| SettingsRepo::verify_pin(conn, &p));
+
         match result {
             Ok(true) => {
                 pin.set(String::new());
@@ -50,54 +46,42 @@ pub fn PinVerifyModal(
                         div { style: "width:100%; background:#fee2e2; border:1px solid #ef4444; border-radius:8px; padding:10px; color:#ef4444; text-align:center; margin-bottom:16px;", "{err}" }
                     }
 
-                    input {
-                        r#type: "password",
-                        inputmode: "numeric",
-                        maxlength: 6,
-                        style: "width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:8px; font-size:16px; text-align:center; letter-spacing:4px; margin-bottom:16px;",
-                        value: "{pin.read().clone()}",
-                        oninput: move |e| {
-                            let v = e.value().chars().filter(|c| c.is_ascii_digit()).collect();
-                            pin.set(v);
-                            error.set(None);
+                    form {
+                        onsubmit: move |e| {
+                            e.prevent_default();
+                            on_submit();
                         },
-                        onkeydown: move |e| {
-                            if e.key() == Key::Enter {
-                                // Reuse verification logic without needing Event
-                                let p = pin.read().clone();
-                                let result = state_keydown.with_conn(|conn| SettingsRepo::verify_pin(conn, &p));
-                                match result {
-                                    Ok(true) => {
-                                        pin.set(String::new());
-                                        error.set(None);
-                                        on_verify.call(());
-                                    },
-                                    Ok(false) => {
-                                        error.set(Some("Incorrect PIN!".into()));
-                                        pin.set(String::new());
-                                    },
-                                    Err(e) => {
-                                        error.set(Some(format!("Error: {}", e)));
-                                    }
-                                }
+                        input {
+                            r#type: "password",
+                            inputmode: "numeric",
+                            enterkeyhint: "done",
+                            autocomplete: "off",
+                            maxlength: 6,
+                            style: "width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:8px; font-size:16px; text-align:center; letter-spacing:4px; margin-bottom:16px;",
+                            value: "{pin.read().clone()}",
+                            oninput: move |e| {
+                                let v = e.value().chars().filter(|c| c.is_ascii_digit()).collect();
+                                pin.set(v);
+                                error.set(None);
                             }
                         }
-                    }
 
-                    div { style: "display:flex; gap:10px;",
-                        button {
-                            style: "flex:1; padding:11px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer; font-size:14px;",
-                            onclick: move |_| {
-                                pin.set(String::new());
-                                error.set(None);
-                                on_cancel.call(());
-                            },
-                            "Cancel"
-                        }
-                        button {
-                            style: "flex:1; padding:11px; border:none; border-radius:8px; background:#6366f1; color:#fff; cursor:pointer; font-size:14px; font-weight:700;",
-                            onclick: on_submit,
-                            "Verify"
+                        div { style: "display:flex; gap:10px;",
+                            button {
+                                style: "flex:1; padding:11px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer; font-size:14px;",
+                                r#type: "button",
+                                onclick: move |_| {
+                                    pin.set(String::new());
+                                    error.set(None);
+                                    on_cancel.call(());
+                                },
+                                "Cancel"
+                            }
+                            button {
+                                style: "flex:1; padding:11px; border:none; border-radius:8px; background:#6366f1; color:#fff; cursor:pointer; font-size:14px; font-weight:700;",
+                                r#type: "submit",
+                                "Verify"
+                            }
                         }
                     }
                 }

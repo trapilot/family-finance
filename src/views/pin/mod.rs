@@ -13,7 +13,7 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
     let mut error = use_signal(|| None::<String>);
 
     let state_clone = state.clone();
-    let on_submit = move |_| {
+    let mut on_submit = move || {
         let p = pin.read().clone();
         let cp = confirm_pin.read().clone();
         
@@ -53,12 +53,19 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
                 }
             }
             
-            div { style: "display:flex; flex-direction:column; gap:16px; width:100%; max-width:300px;",
+            form {
+                style: "display:flex; flex-direction:column; gap:16px; width:100%; max-width:300px;",
+                onsubmit: move |e| {
+                    e.prevent_default();
+                    on_submit();
+                },
                 div { style: "display:flex; flex-direction:column; gap:8px;",
                     label { style: "font-weight:600; font-size:14px; color:#374151;", "Enter PIN" },
                     input {
                         r#type: "password",
                         inputmode: "numeric",
+                        enterkeyhint: "done",
+                        autocomplete: "off",
                         maxlength: 6,
                         style: "width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:8px; font-size:16px; text-align:center; letter-spacing:4px;",
                         value: "{pin.read().clone()}",
@@ -75,6 +82,8 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
                     input {
                         r#type: "password",
                         inputmode: "numeric",
+                        enterkeyhint: "done",
+                        autocomplete: "off",
                         maxlength: 6,
                         style: "width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:8px; font-size:16px; text-align:center; letter-spacing:4px;",
                         value: "{confirm_pin.read().clone()}",
@@ -88,7 +97,7 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
                 
                 button {
                     style: "margin-top:16px; width:100%; padding:14px; background:#6366f1; color:#fff; border:none; border-radius:12px; font-weight:700; font-size:16px; cursor:pointer;",
-                    onclick: on_submit,
+                    r#type: "submit",
                     "Continue"
                 }
             }
@@ -102,7 +111,7 @@ pub fn PinUnlock(on_unlock: EventHandler) -> Element {
     let mut pin = use_signal(|| String::new());
     let mut error = use_signal(|| None::<String>);
 
-    let on_submit = move |_| {
+    let mut on_submit = move || {
         let p = pin.read().clone();
         
         let result = state.with_conn(|conn| SettingsRepo::verify_pin(conn, &p));
@@ -134,11 +143,18 @@ pub fn PinUnlock(on_unlock: EventHandler) -> Element {
                 }
             }
             
-            div { style: "display:flex; flex-direction:column; gap:16px; width:100%; max-width:300px;",
+            form {
+                style: "display:flex; flex-direction:column; gap:16px; width:100%; max-width:300px;",
+                onsubmit: move |e| {
+                    e.prevent_default();
+                    on_submit();
+                },
                 div { style: "display:flex; flex-direction:column; gap:8px;",
                     input {
                         r#type: "password",
                         inputmode: "numeric",
+                        enterkeyhint: "done",
+                        autocomplete: "off",
                         maxlength: 6,
                         style: "width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:8px; font-size:16px; text-align:center; letter-spacing:4px;",
                         value: "{pin.read().clone()}",
@@ -152,7 +168,7 @@ pub fn PinUnlock(on_unlock: EventHandler) -> Element {
                 
                 button {
                     style: "margin-top:16px; width:100%; padding:14px; background:#6366f1; color:#fff; border:none; border-radius:12px; font-weight:700; font-size:16px; cursor:pointer;",
-                    onclick: on_submit,
+                    r#type: "submit",
                     "Unlock"
                 }
             }

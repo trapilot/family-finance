@@ -6,6 +6,7 @@ use crate::app::AppState;
 use crate::models::{Currency, NewWallet, Wallet, WalletType};
 use crate::repository::WalletRepo;
 use super::WalletView;
+use crate::views::AmountInput;
 
 #[component]
 pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element {
@@ -161,12 +162,9 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
             // ── Initial balance (only for new) ──
             if editing.is_none() {
                 FieldLabel { label: "Opening Balance" }
-                input {
-                    style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;",
-                    r#type: "number",
-                    placeholder: "0",
-                    value: "{balance_str.read()}",
-                    oninput: move |e| { balance_str.set(e.value()); },
+                AmountInput {
+                    value: balance_str.read().clone(),
+                    oninput: move |v| balance_str.set(v),
                 }
             }
 

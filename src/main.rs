@@ -43,7 +43,7 @@ fn main() {
     launch();
 }
 
-/// Serve our own index.html so the page fills the device screen and can respect the safe areas.
+/// Add our viewport + base CSS to the default page so it fills the device screen and respects the safe areas.
 #[cfg(any(feature = "mobile", feature = "desktop"))]
 fn launch() {
     // `mobile` and `desktop` both re-export dioxus_desktop
@@ -53,7 +53,7 @@ fn launch() {
     use dioxus::desktop::Config;
 
     let cfg = Config::new()
-        .with_custom_index(include_str!("index.html").to_string())
+        .with_custom_head(include_str!("head.html").to_string())
         .with_background_color((245, 245, 245, 255));
 
     dioxus::LaunchBuilder::new().with_cfg(cfg).launch(app::App);

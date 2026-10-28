@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 use crate::app::AppState;
 use crate::models::holding::AssetType;
 use crate::services::{holding_service::HoldingWithPnl, HoldingService};
-use crate::views::fmt_currency;
+use crate::views::{fmt_currency, AmountInput};
 use crate::models::Currency;
 
 #[component]
@@ -201,12 +201,11 @@ fn HoldingCard(
             if is_editing_price {
                 div {
                     style: "display:flex; gap:8px; align-items:center;",
-                    input {
-                        style: "flex:1; border:1px solid #6366f1; border-radius:8px; padding:8px 10px; font-size:14px; outline:none;",
-                        r#type: "number",
+                    AmountInput {
+                        style: "flex:1; min-width:0; border:1px solid #6366f1; border-radius:8px; padding:8px 10px; font-size:14px; outline:none;",
                         placeholder: "New price",
-                        value: "{price_input}",
-                        oninput: move |e| { on_price_input.call(e.value()); },
+                        value: price_input.clone(),
+                        oninput: move |v| on_price_input.call(v),
                     }
                     button {
                         style: "padding:8px 14px; background:#6366f1; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;",

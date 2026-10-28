@@ -6,6 +6,8 @@ pub mod wallets;
 pub mod members;
 pub mod pin;
 
+use dioxus::prelude::*;
+
 // ─── Shared UI helpers ────────────────────────────────────────────────────────
 
 /// Format VND — e.g. 1.500.000 ₫
@@ -48,6 +50,64 @@ fn format_thousands(n: i64) -> String {
     let mut out: String = result.chars().rev().collect();
     if n < 0 { out = format!("-{out}"); }
     out
+}
+
+// ─── AmountInput ──────────────────────────────────────────────────────────────
+
+/// Keep only digits and the first `.` — the raw value that `Decimal::from_str` parses.
+fn sanitize_amount(s: &str) -> String {
+    let mut out = String::new();
+    let mut has_dot = false;
+    for c in s.chars() {
+        if c.is_ascii_digit() {
+            out.push(c);
+        } else if c == '.' && !has_dot {
+            has_dot = true;
+            out.push(c);
+        }
+    }
+    out
+}
+
+/// Raw "1500000.5" → display "1,500,000.5"
+fn group_amount(raw: &str) -> String {
+    let (int_part, frac_part) = match raw.split_once('.') {
+        Some((i, f)) => (i, Some(f)),
+        None => (raw, None),
+    };
+    let mut grouped = String::new();
+    for (i, c) in int_part.chars().enumerate() {
+        if i > 0 && (int_part.len() - i) % 3 == 0 { grouped.push(','); }
+        grouped.push(c);
+    }
+    match frac_part {
+        Some(f) => format!("{grouped}.{f}"),
+        None => grouped,
+    }
+}
+
+const AMOUNT_INPUT_STYLE: &str = "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;";
+
+/// Number input that shows thousands separators (1,500,000) while `value` / `oninput` stay raw (1500000).
+#[component]
+pub fn AmountInput(
+    value: String,
+    oninput: EventHandler<String>,
+    #[props(default = "0".to_string())] placeholder: String,
+    #[props(default = AMOUNT_INPUT_STYLE.to_string())] style: String,
+) -> Element {
+    let display = group_amount(&value);
+    rsx! {
+        input {
+            style: "{style}",
+            r#type: "text",
+            inputmode: "decimal",
+            autocomplete: "off",
+            placeholder: "{placeholder}",
+            value: "{display}",
+            oninput: move |e| oninput.call(sanitize_amount(&e.value())),
+        }
+    }
 }
 
 /// Current month/year as (year: i32, month: u32)

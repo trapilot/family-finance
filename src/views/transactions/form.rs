@@ -8,7 +8,7 @@ use crate::models::{
 };
 use crate::repository::{CategoryRepo, HoldingRepo, WalletRepo};
 use crate::services::TransactionService;
-use crate::views::{date_str_to_ts, now_ts};
+use crate::views::{date_str_to_ts, now_ts, AmountInput};
 use super::TxnView;
 
 #[component]
@@ -253,14 +253,9 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
 
             // ── Amount ──
             FieldLabel { label: "Amount" }
-            input {
-                style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;",
-                r#type: "number",
-                placeholder: "0",
-                value: "{amount_str.read()}",
-                oninput: move |e| {
-                    amount_str.set(e.value());
-                },
+            AmountInput {
+                value: amount_str.read().clone(),
+                oninput: move |v| amount_str.set(v),
             }
 
             // ── Type-specific fields ──
@@ -305,12 +300,10 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                         options: wallets.read().iter().map(|w| (w.id.clone(), format!("{} ({})", w.name, w.currency))).collect()
                     }
                     FieldLabel { label: "To Amount (leave same for same-currency)" }
-                    input {
-                        style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;",
-                        r#type: "number",
+                    AmountInput {
+                        value: to_amount_str.read().clone(),
                         placeholder: "Received amount",
-                        value: "{to_amount_str.read()}",
-                        oninput: move |e| { to_amount_str.set(e.value()); },
+                        oninput: move |v| to_amount_str.set(v),
                     }
                     FieldLabel { label: "To Currency" }
                     div {
@@ -344,20 +337,14 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                         options: holdings.read().iter().map(|h| (h.id.clone(), format!("{} ({})", h.symbol, h.asset_type))).collect()
                     }
                     FieldLabel { label: "Quantity" }
-                    input {
-                        style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;",
-                        r#type: "number",
-                        placeholder: "0",
-                        value: "{qty_str.read()}",
-                        oninput: move |e| { qty_str.set(e.value()); },
+                    AmountInput {
+                        value: qty_str.read().clone(),
+                        oninput: move |v| qty_str.set(v),
                     }
                     FieldLabel { label: "Price per unit" }
-                    input {
-                        style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;",
-                        r#type: "number",
-                        placeholder: "0",
-                        value: "{price_str.read()}",
-                        oninput: move |e| { price_str.set(e.value()); },
+                    AmountInput {
+                        value: price_str.read().clone(),
+                        oninput: move |v| price_str.set(v),
                     }
                 },
             }

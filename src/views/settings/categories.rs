@@ -5,6 +5,7 @@ use std::str::FromStr;
 use crate::app::AppState;
 use crate::models::{Category, NewCategory};
 use crate::repository::CategoryRepo;
+use crate::views::AmountInput;
 
 #[derive(Clone, PartialEq)]
 enum CatMode { List, Add, Edit(Category) }
@@ -288,12 +289,10 @@ fn CatForm(
             }
 
             FieldLabel { label: "Monthly Budget (optional)" }
-            input {
-                style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;",
-                r#type: "number",
+            AmountInput {
+                value: budget_str.read().clone(),
                 placeholder: "Leave empty for unlimited",
-                value: "{budget_str.read()}",
-                oninput: move |e| { budget_str.set(e.value()); },
+                oninput: move |v| budget_str.set(v),
             }
 
             if !error_msg.read().is_empty() {

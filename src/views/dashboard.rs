@@ -213,6 +213,7 @@ fn RecentTxnRow(txn: Transaction) -> Element {
         crate::models::TransactionType::Transfer  => ("⇄", "#6366f1"),
         crate::models::TransactionType::InvestBuy  => ("📈", "#f59e0b"),
         crate::models::TransactionType::InvestSell => ("📉", "#8b5cf6"),
+        crate::models::TransactionType::OpeningBalance => ("🏁", "#0ea5e9"),
     };
     let amount_str = fmt_currency(txn.amount, &txn.currency);
     let date_str   = ts_to_date_str(txn.txn_date);

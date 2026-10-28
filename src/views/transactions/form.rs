@@ -161,6 +161,9 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                     let price = match Decimal::from_str(&price_str.read()) { Ok(p) => p, Err(_) => { error_msg.set(t.t("Invalid price").into()); return; } };
                     NewTransaction::invest_sell(&wallet_id.read(), &holding_id.read(), qty, price, currency.read().clone(), date_ts)
                 }
+                TransactionType::OpeningBalance => {
+                    NewTransaction::opening_balance(&wallet_id.read(), amount, currency.read().clone(), date_ts)
+                }
             };
 
             new_txn.note = note_opt.clone();
@@ -365,6 +368,8 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                         }
                     }
                 },
+
+                TransactionType::OpeningBalance => rsx! {},
 
                 TransactionType::InvestBuy | TransactionType::InvestSell => rsx! {
                     FieldLabel { label: t.t("Holding") }

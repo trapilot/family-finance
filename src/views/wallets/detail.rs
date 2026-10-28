@@ -148,9 +148,10 @@ fn TxnHistoryRow(txn: Transaction) -> Element {
         TransactionType::Transfer   => ("⇄", "#6366f1"),
         TransactionType::InvestBuy  => ("📈", "#f59e0b"),
         TransactionType::InvestSell => ("📉", "#8b5cf6"),
+        TransactionType::OpeningBalance => ("🏁", "#0ea5e9"),
     };
     let sign = match txn.txn_type {
-        TransactionType::Income | TransactionType::InvestSell => "+",
+        TransactionType::Income | TransactionType::InvestSell | TransactionType::OpeningBalance => "+",
         _ => "-",
     };
     let type_str = t.code(&txn.txn_type.to_string());

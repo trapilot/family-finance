@@ -35,7 +35,7 @@ impl TransactionService {
 
     fn execute_inner(conn: &Connection, input: &NewTransaction) -> Result<Transaction> {
         match input.txn_type {
-            TransactionType::Income    => Self::process_income(conn, input),
+            TransactionType::Income | TransactionType::OpeningBalance => Self::process_income(conn, input),
             TransactionType::Expense   => Self::process_expense(conn, input),
             TransactionType::Transfer  => Self::process_transfer(conn, input),
             TransactionType::InvestBuy => Self::process_invest_buy(conn, input),
@@ -143,7 +143,7 @@ impl TransactionService {
 
     fn reverse_inner(conn: &Connection, txn: &Transaction) -> Result<()> {
         match txn.txn_type {
-            TransactionType::Income => {
+            TransactionType::Income | TransactionType::OpeningBalance => {
                 WalletRepo::add_balance(conn, &txn.wallet_id, -txn.amount_f64())?;
             }
             TransactionType::Expense => {
@@ -229,6 +229,7 @@ impl TransactionService {
                     return Err(AppError::Validation("transfer requires to_amount".into()));
                 }
             }
+            TransactionType::OpeningBalance => {}
             TransactionType::InvestBuy | TransactionType::InvestSell => {
                 if input.holding_id.is_none() {
                     return Err(AppError::Validation("invest transaction requires holding_id".into()));

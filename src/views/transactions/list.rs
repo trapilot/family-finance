@@ -87,6 +87,7 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
                     (TransactionType::Transfer,  t.t("Transfer")),
                     (TransactionType::InvestBuy, t.t("Buy")),
                     (TransactionType::InvestSell,t.t("Sell")),
+                    (TransactionType::OpeningBalance, t.t("Opening Balance")),
                 ] {
                     {
                         let tt_clone = tt.clone();
@@ -196,6 +197,7 @@ fn TxnRow(
         TransactionType::Transfer   => ("⇄", "#6366f1"),
         TransactionType::InvestBuy  => ("📈", "#f59e0b"),
         TransactionType::InvestSell => ("📉", "#8b5cf6"),
+        TransactionType::OpeningBalance => ("🏁", "#0ea5e9"),
     };
     let amount_str = fmt_currency(txn.amount, &txn.currency);
     let date_str   = ts_to_date_str(txn.txn_date);

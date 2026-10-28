@@ -4,10 +4,11 @@ use rust_decimal::Decimal;
 use std::str::FromStr;
 
 use crate::app::AppState;
-use crate::models::{Currency, NewWallet, Wallet, WalletType};
+use crate::models::{Currency, NewTransaction, NewWallet, Wallet, WalletType};
 use crate::repository::WalletRepo;
+use crate::services::TransactionService;
 use super::WalletView;
-use crate::views::AmountInput;
+use crate::views::{now_ts, AmountInput};
 
 #[component]
 pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element {
@@ -64,16 +65,24 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
                     updated.icon        = icon_opt.clone();
                     WalletRepo::update(conn, &updated)
                 } else {
-                    WalletRepo::create(conn, &NewWallet {
+                    // The balance only ever moves through transactions, so the opening amount
+                    // is recorded as an "Opening Balance" transaction on a wallet created at 0.
+                    let wallet = WalletRepo::create(conn, &NewWallet {
                         name: name_val.clone(),
                         wallet_type: wallet_type.read().clone(),
                         currency: currency.read().clone(),
-                        balance,
+                        balance: Decimal::ZERO,
                         broker: broker_opt,
                         icon: icon_opt,
                         color: None,
                         sort_order: 0,
-                    }).map(|_| ())
+                    })?;
+                    if balance > Decimal::ZERO {
+                        let mut opening = NewTransaction::opening_balance(&wallet.id, balance, wallet.currency.clone(), now_ts());
+                        opening.note = Some(t.t("Opening Balance").to_string());
+                        TransactionService::execute(conn, &opening)?;
+                    }
+                    Ok(())
                 }
             });
 

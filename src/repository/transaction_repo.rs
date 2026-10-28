@@ -250,4 +250,28 @@ mod tests {
         assert_eq!(types(vec![TransactionType::Expense]), vec![TransactionType::Expense]);
         assert_eq!(types(vec![]).len(), 3, "empty = no type filter");
     }
+
+    #[test]
+    fn opening_balance_moves_balance_but_is_not_income() {
+        use crate::services::ReportService;
+        use chrono::{Datelike, Local};
+
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::run(&conn).unwrap();
+        let wallet = WalletRepo::create(&conn, &NewWallet {
+            name: "Cash".into(), wallet_type: WalletType::Cash, currency: Currency::VND,
+            balance: Decimal::ZERO, broker: None, icon: None, color: None, sort_order: 0,
+        }).unwrap();
+        let now = Local::now();
+        let opening = TransactionService::execute(&conn,
+            &NewTransaction::opening_balance(&wallet.id, Decimal::from(5_000_000), Currency::VND, now.timestamp())).unwrap();
+
+        let balance = || WalletRepo::find_by_id(&conn, &wallet.id).unwrap().unwrap().balance;
+        assert_eq!(balance(), Decimal::from(5_000_000));
+        let summary = ReportService::monthly_summary(&conn, now.year(), now.month()).unwrap();
+        assert_eq!(summary.income, Decimal::ZERO, "opening balance is not income");
+
+        TransactionService::delete(&conn, &opening.id).unwrap();
+        assert_eq!(balance(), Decimal::ZERO, "deleting reverses it");
+    }
 }

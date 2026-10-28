@@ -108,6 +108,7 @@ fn code_label(code: &str) -> Option<&'static str> {
         "transfer"    => "Transfer",
         "invest_buy"  => "Buy",
         "invest_sell" => "Sell",
+        "opening_balance" => "Opening Balance",
         // IncomeType
         "salary"      => "Salary",
         "bonus"       => "Bonus",

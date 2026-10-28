@@ -18,6 +18,8 @@ pub enum TransactionType {
     Transfer,
     InvestBuy,
     InvestSell,
+    /// Starting amount of a wallet; adds to the balance but is not income in reports
+    OpeningBalance,
 }
 
 impl fmt::Display for TransactionType {
@@ -28,6 +30,7 @@ impl fmt::Display for TransactionType {
             TransactionType::Transfer  => write!(f, "transfer"),
             TransactionType::InvestBuy => write!(f, "invest_buy"),
             TransactionType::InvestSell => write!(f, "invest_sell"),
+            TransactionType::OpeningBalance => write!(f, "opening_balance"),
         }
     }
 }
@@ -41,6 +44,7 @@ impl FromStr for TransactionType {
             "transfer"    => Ok(TransactionType::Transfer),
             "invest_buy"  => Ok(TransactionType::InvestBuy),
             "invest_sell" => Ok(TransactionType::InvestSell),
+            "opening_balance" => Ok(TransactionType::OpeningBalance),
             _             => Err(AppError::Parse(format!("Unknown transaction type: {s}"))),
         }
     }
@@ -194,6 +198,25 @@ impl NewTransaction {
             amount,
             currency,
             income_type: Some(income_type),
+            category_id: None,
+            to_wallet_id: None,
+            to_amount: None,
+            to_currency: None,
+            holding_id: None,
+            asset_quantity: None,
+            asset_price: None,
+            note: None,
+            txn_date,
+        }
+    }
+
+    pub fn opening_balance(wallet_id: &str, amount: Decimal, currency: Currency, txn_date: i64) -> Self {
+        Self {
+            txn_type: TransactionType::OpeningBalance,
+            wallet_id: wallet_id.to_string(),
+            amount,
+            currency,
+            income_type: None,
             category_id: None,
             to_wallet_id: None,
             to_amount: None,

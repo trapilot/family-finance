@@ -5,11 +5,11 @@ use std::str::FromStr;
 
 use crate::app::AppState;
 use crate::models::{
-    Currency, IncomeType, NewTransaction, Transaction, TransactionType,
+    Currency, IncomeType, NewReminder, NewTransaction, RepeatUnit, Transaction, TransactionType,
 };
-use crate::repository::{CategoryRepo, HoldingRepo, WalletRepo};
-use crate::services::TransactionService;
-use crate::views::{date_str_to_ts, now_ts, AmountInput};
+use crate::repository::{CategoryRepo, HoldingRepo, ReminderRepo, WalletRepo};
+use crate::services::{ReminderService, TransactionService};
+use crate::views::{date_str_add, date_str_to_ts, now_ts, repeat_unit_label, AmountInput};
 use super::TxnView;
 
 #[component]
@@ -59,6 +59,12 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
     let mut holding_id = use_signal(|| editing.as_ref().and_then(|t| t.holding_id.clone()).unwrap_or_default());
     let mut qty_str    = use_signal(|| editing.as_ref().and_then(|t| t.asset_quantity.map(|q| format!("{q}"))).unwrap_or_default());
     let mut price_str  = use_signal(|| editing.as_ref().and_then(|t| t.asset_price.map(|p| format!("{p}"))).unwrap_or_default());
+
+    // Recurring reminder (new Income / Transfer only): notify, never auto-add
+    let mut remind       = use_signal(|| false);
+    let mut remind_start = use_signal(String::new);
+    let mut remind_every = use_signal(|| "1".to_string());
+    let mut remind_unit  = use_signal(|| RepeatUnit::Month);
 
     let error_msg = use_signal(|| String::new());
 
@@ -157,14 +163,44 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                 }
             };
 
-            new_txn.note = note_opt;
+            new_txn.note = note_opt.clone();
 
-            let result = state.with_conn(|conn| {
+            let kind = txn_type.read().clone();
+            let reminder = if editing.is_none() && remind() && matches!(kind, TransactionType::Income | TransactionType::Transfer) {
+                let Some(every) = remind_every.read().parse::<u32>().ok().filter(|n| *n > 0) else {
+                    error_msg.set(t.t("Repeat every must be at least 1").into());
+                    return;
+                };
+                let Some(start_date) = date_str_to_ts(&remind_start.read()) else {
+                    error_msg.set(t.t("Choose the first reminder date").into());
+                    return;
+                };
+                Some(NewReminder {
+                    txn_type:     kind.clone(),
+                    wallet_id:    wallet_id.read().clone(),
+                    to_wallet_id: (kind == TransactionType::Transfer).then(|| to_wallet_id.read().clone()),
+                    amount,
+                    currency:     currency.read().clone(),
+                    note:         note_opt,
+                    start_date,
+                    repeat_unit:  remind_unit(),
+                    repeat_every: every,
+                })
+            } else {
+                None
+            };
+
+            let result = state.with_conn(|conn| -> crate::error::Result<()> {
                 // If editing: delete old then insert new (simple approach)
                 if let Some(ref old) = editing {
                     let _ = TransactionService::delete(conn, &old.id);
                 }
-                TransactionService::execute(conn, &new_txn)
+                TransactionService::execute(conn, &new_txn)?;
+                if let Some(ref reminder) = reminder {
+                    ReminderRepo::create(conn, reminder)?;
+                    ReminderService::resync(conn)?;
+                }
+                Ok(())
             });
 
             match result {
@@ -358,6 +394,61 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                 r#type: "date",
                 value: "{txn_date.read()}",
                 oninput: move |e| { txn_date.set(e.value()); },
+            }
+
+            // ── Recurring reminder (new Income / Transfer) ──
+            if editing.is_none() && matches!(*txn_type.read(), TransactionType::Income | TransactionType::Transfer) {
+                div {
+                    style: "background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px;",
+                    label {
+                        style: "display:flex; align-items:center; gap:10px; font-size:14px; font-weight:600; color:#374151;",
+                        input {
+                            r#type: "checkbox",
+                            style: "width:18px; height:18px;",
+                            checked: remind(),
+                            onchange: move |e| {
+                                let on = e.checked();
+                                remind.set(on);
+                                // Default: the next occurrence after this transaction
+                                if on && remind_start.read().is_empty() {
+                                    remind_start.set(date_str_add(&txn_date.read(), remind_unit(), 1));
+                                }
+                            },
+                        }
+                        {t.t("🔔 Remind me when this repeats")}
+                    }
+                    if remind() {
+                        FieldLabel { label: t.t("First reminder date") }
+                        input {
+                            style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; background:#fff;",
+                            r#type: "date",
+                            value: "{remind_start.read()}",
+                            oninput: move |e| { remind_start.set(e.value()); },
+                        }
+                        FieldLabel { label: t.t("Repeat every") }
+                        div { style: "display:flex; gap:8px;",
+                            input {
+                                style: "width:72px; border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;",
+                                r#type: "text",
+                                inputmode: "numeric",
+                                value: "{remind_every.read()}",
+                                oninput: move |e| { remind_every.set(e.value().chars().filter(|c| c.is_ascii_digit()).take(3).collect()); },
+                            }
+                            select {
+                                style: "flex:1; border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; background:#fff;",
+                                onchange: move |e| {
+                                    if let Ok(unit) = e.value().parse::<RepeatUnit>() { remind_unit.set(unit); }
+                                },
+                                for unit in RepeatUnit::ALL {
+                                    option { value: "{unit}", selected: unit == remind_unit(), {t.t(repeat_unit_label(unit))} }
+                                }
+                            }
+                        }
+                        p { style: "margin:0; font-size:12px; color:#6b7280; line-height:1.4;",
+                            {t.t("On each due day you'll get notifications from the first notification time, then every few hours (Settings → Reminders). Tap \"Done for today\" to stop them. Nothing is added automatically.")}
+                        }
+                    }
+                }
             }
 
             // ── Note ──

@@ -3,6 +3,7 @@ pub mod family;
 pub mod holding;
 pub mod member;
 pub mod rate;
+pub mod reminder;
 pub mod transaction;
 pub mod wallet;
 
@@ -11,6 +12,7 @@ pub use family::{Family, NewFamily};
 pub use holding::{AssetType, Holding };
 pub use member::{Member, NewMember};
 pub use rate::ExchangeRate;
+pub use reminder::{NewReminder, Reminder, RepeatUnit};
 pub use transaction::{IncomeType, NewTransaction, Transaction, TransactionType};
 pub use wallet::{Currency, NewWallet, Wallet, WalletType};
 

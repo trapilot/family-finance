@@ -110,6 +110,13 @@ fn MainApp() -> Element {
     let active_tab = use_signal(|| Tab::Dashboard);
     crate::views::rates::use_rates_provider();
 
+    // Once per launch: ask to show notifications and re-schedule the next 14 days
+    let state = use_context::<AppState>();
+    use_hook(move || {
+        crate::notify::request_permission();
+        let _ = state.with_conn(crate::services::ReminderService::resync);
+    });
+
     rsx! {
         div {
             // Pinned to the screen edges: content scrolls, tab bar stays at the bottom

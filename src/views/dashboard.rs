@@ -5,7 +5,7 @@ use rust_decimal::Decimal;
 use crate::app::AppState;
 use crate::models::Transaction;
 use crate::repository::TransactionRepo;
-use crate::services::ReportService;
+use crate::services::{ReminderService, ReportService};
 use crate::views::rates::ConvertedTotal;
 use crate::views::{current_month, fmt_currency, fmt_gold, fmt_usd, fmt_vnd, month_label, ts_to_date_str};
 
@@ -31,6 +31,22 @@ pub fn Dashboard() -> Element {
     });
     let alerts    = use_signal(|| vec![]);
     let recent    = use_signal(|| vec![]);
+    // Reminders due today, as (id, title, body, done)
+    let mut due_today = use_signal(Vec::<(String, String, String, bool)>::new);
+    let load_due = {
+        let state = state.clone();
+        move |lang| {
+            let today = chrono::Local::now().date_naive();
+            state.with_conn(|conn| {
+                if let (Ok(due), Ok(wallets)) = (ReminderService::due_on(conn, today), crate::repository::WalletRepo::list_active(conn)) {
+                    due_today.set(due.iter().map(|r| {
+                        let (title, body) = ReminderService::describe(r, &wallets, lang);
+                        (r.id.clone(), title, body, r.is_done_on(today))
+                    }).collect());
+                }
+            });
+        }
+    };
 
     // ── Load on mount ──
     use_effect({
@@ -39,7 +55,9 @@ pub fn Dashboard() -> Element {
         let mut summary   = summary.clone();
         let mut alerts    = alerts.clone();
         let mut recent    = recent.clone();
+        let mut load_due = load_due.clone();
         move || {
+            load_due(t.lang());
             state.with_conn(|conn| {
                 if let Ok(nw) = ReportService::net_worth(conn) {
                     net_worth.set(nw);
@@ -81,6 +99,39 @@ pub fn Dashboard() -> Element {
                 NetWorthCard { label: "GOLD", value: fmt_gold(net_worth.read().gold), color: "#f59e0b" }
             }
             ConvertedTotal { vnd: net_worth.read().vnd, usd: net_worth.read().usd, gold: net_worth.read().gold }
+
+            // ── Reminders due today ──
+            if !due_today.read().is_empty() {
+                div {
+                    style: "background:#eef2ff; border:1px solid #c7d2fe; border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:8px;",
+                    h2 { style: "margin:0; font-size:15px; font-weight:600; color:#4338ca;", {t.t("🔔 Due today")} }
+                    for (id, title, body, done) in due_today.read().iter().cloned() {
+                        div { style: "display:flex; gap:10px; align-items:center;",
+                            div { style: if done { "flex:1; min-width:0; opacity:.55;" } else { "flex:1; min-width:0;" },
+                                div { style: "font-size:13px; font-weight:600; color:#1f2937;", "{title}" }
+                                div { style: "font-size:13px; color:#374151; overflow-wrap:anywhere;", "{body}" }
+                            }
+                            if done {
+                                span { style: "font-size:12px; color:#10b981; font-weight:600; flex-shrink:0;", {t.t("✓ Done")} }
+                            } else {
+                                button {
+                                    style: "border:none; background:#6366f1; color:#fff; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer; flex-shrink:0;",
+                                    onclick: {
+                                        let state = state.clone();
+                                        let mut load_due = load_due.clone();
+                                        move |_| {
+                                            let today = chrono::Local::now().date_naive();
+                                            let _ = state.with_conn(|conn| ReminderService::mark_done(conn, &id, today));
+                                            load_due(t.lang());
+                                        }
+                                    },
+                                    {t.t("✓ Done for today")}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             // ── Monthly Summary ──
             div {

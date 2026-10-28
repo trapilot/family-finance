@@ -22,6 +22,14 @@ pub fn run(conn: &Connection) -> Result<()> {
         migrate_v5(conn)?;
         set_version(conn, 5)?;
     }
+    if version < 6 {
+        migrate_v6(conn)?;
+        set_version(conn, 6)?;
+    }
+    if version < 7 {
+        migrate_v7(conn)?;
+        set_version(conn, 7)?;
+    }
     Ok(())
 }
 
@@ -180,5 +188,39 @@ fn migrate_v5(conn: &Connection) -> Result<()> {
             source     TEXT NOT NULL,      -- where it came from, e.g. 'yahoo'
             fetched_at INTEGER NOT NULL    -- unix seconds
         );
+    ")
+}
+
+// ─── V6 — recurring income/transfer reminders ────────
+
+fn migrate_v6(conn: &Connection) -> Result<()> {
+    conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS reminders (
+            id           TEXT PRIMARY KEY,
+            txn_type     TEXT NOT NULL,              -- 'income' / 'transfer'
+            wallet_id    TEXT NOT NULL REFERENCES wallets(id),
+            to_wallet_id TEXT REFERENCES wallets(id), -- transfer only
+            amount       REAL NOT NULL,
+            currency     TEXT NOT NULL,
+            note         TEXT,
+            start_date   INTEGER NOT NULL,           -- first due day (unix seconds, local noon)
+            repeat_unit  TEXT NOT NULL,              -- 'day' / 'week' / 'month' / 'year'
+            repeat_every INTEGER NOT NULL DEFAULT 1,
+            created_at   INTEGER NOT NULL
+        );
+
+        -- On a due day, notify every N hours
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('reminder_interval_hours', '4');
+    ")
+}
+
+// ─── V7 — stop reminder notifications: done for a day / paused; first notification time ────────
+
+fn migrate_v7(conn: &Connection) -> Result<()> {
+    conn.execute_batch("
+        ALTER TABLE reminders ADD COLUMN done_on TEXT;                        -- 'YYYY-MM-DD' marked done
+        ALTER TABLE reminders ADD COLUMN is_paused INTEGER NOT NULL DEFAULT 0;
+
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('reminder_start_time', '08:00');
     ")
 }

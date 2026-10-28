@@ -3,6 +3,7 @@ mod db;
 mod error;
 mod i18n;
 mod models;
+mod notify;
 mod repository;
 mod services;
 mod views;
@@ -43,6 +44,13 @@ fn main() {
         repository::SettingsRepo::set_app_version(&conn, env!("CARGO_PKG_VERSION"))
             .expect("Failed to save app version");
     }
+
+    // "Done for today" tapped on a reminder notification (may arrive before any UI exists)
+    notify::init(|notification_id| {
+        let db = db::get();
+        let conn = db.lock().expect("DB lock poisoned");
+        let _ = services::ReminderService::handle_done_action(&conn, notification_id);
+    });
 
     launch();
 }

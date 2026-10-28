@@ -60,10 +60,7 @@ impl I18n {
 
     /// Translate UI text. The English text is the key; falls back to it when no translation exists.
     pub fn t(&self, en: &'static str) -> &'static str {
-        match self.lang() {
-            Lang::En => en,
-            Lang::Vi => vi(en).unwrap_or(en),
-        }
+        translate(self.lang(), en)
     }
 
     /// Translate runtime text (e.g. seeded category names stored in the DB).
@@ -81,6 +78,14 @@ impl I18n {
             Some(en) => self.t(en).to_string(),
             None     => code.to_string(),
         }
+    }
+}
+
+/// Translate outside components (e.g. notification text built from settings).
+pub fn translate(lang: Lang, en: &'static str) -> &'static str {
+    match lang {
+        Lang::En => en,
+        Lang::Vi => vi(en).unwrap_or(en),
     }
 }
 
@@ -354,6 +359,35 @@ fn vi(en: &str) -> Option<&'static str> {
         "Enter a rate greater than 0"          => "Nhập tỷ giá lớn hơn 0",
         "No rate yet — update online or tap ✏️ to enter it" => "Chưa có tỷ giá — cập nhật online hoặc bấm ✏️ để nhập",
         "Not included (no rate yet): {list}"   => "Chưa tính (chưa có tỷ giá): {list}",
+        // Reminders
+        "🔔 Remind me when this repeats"      => "🔔 Nhắc tôi khi khoản này lặp lại",
+        "First reminder date"                 => "Ngày nhắc đầu tiên",
+        "Repeat every"                        => "Lặp lại mỗi",
+        "day(s)"                              => "ngày",
+        "week(s)"                             => "tuần",
+        "month(s)"                            => "tháng",
+        "year(s)"                             => "năm",
+        "Repeat every must be at least 1"     => "Số lần lặp phải từ 1 trở lên",
+        "Choose the first reminder date"      => "Hãy chọn ngày nhắc đầu tiên",
+        "On each due day you'll get notifications from the first notification time, then every few hours (Settings → Reminders). Tap \"Done for today\" to stop them. Nothing is added automatically." => "Vào mỗi ngày đến hạn, bạn sẽ nhận thông báo từ giờ thông báo đầu tiên, sau đó cứ vài giờ một lần (Cài đặt → Nhắc nhở). Bấm \"Xong hôm nay\" để dừng. Ứng dụng không tự thêm giao dịch.",
+        "Reminders"                           => "Nhắc nhở",
+        "Notification frequency"              => "Tần suất thông báo",
+        "On a day with due income or transfers, notify from the first notification time, then every N hours until midnight." => "Vào ngày có khoản thu hoặc chuyển khoản đến hạn, thông báo từ giờ thông báo đầu tiên, rồi cứ N giờ một lần đến nửa đêm.",
+        "First notification at"               => "Thông báo đầu tiên lúc",
+        "✓ Done for today"                    => "✓ Xong hôm nay",
+        "✓ Done"                              => "✓ Xong",
+        "⏸ Pause"                             => "⏸ Tạm dừng",
+        "▶ Resume"                            => "▶ Tiếp tục",
+        "⏸ Paused — no notifications"         => "⏸ Đang tạm dừng — không thông báo",
+        "Every"                               => "Mỗi",
+        "hours (1–24)"                        => "giờ (1–24)",
+        "Recurring reminders"                 => "Nhắc nhở định kỳ",
+        "No reminders yet. Turn on \"Remind me when this repeats\" when adding an Income or Transfer." => "Chưa có nhắc nhở nào. Bật \"Nhắc tôi khi khoản này lặp lại\" khi thêm Thu nhập hoặc Chuyển khoản.",
+        "Every {n} {unit} · from {date}"      => "Mỗi {n} {unit} · từ {date}",
+        "Next"                                => "Lần tới",
+        "🔔 Due today"                        => "🔔 Đến hạn hôm nay",
+        "💰 Expected income today"            => "💰 Hôm nay có khoản thu",
+        "⇄ Transfer due today"                => "⇄ Hôm nay có khoản chuyển",
         "Food & Drinks"                        => "Ăn uống",
         "Transport"                            => "Đi lại",
         "Shopping"                             => "Mua sắm",

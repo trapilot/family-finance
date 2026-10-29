@@ -32,6 +32,13 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
     let mut broker      = use_signal(|| editing.as_ref().and_then(|w| w.broker.clone()).unwrap_or_default());
     let mut icon        = use_signal(|| editing.as_ref().and_then(|w| w.icon.clone()).unwrap_or_default());
     let error_msg   = use_signal(|| String::new());
+    // Editing only: whether the wallet is unused (see `WalletRepo::can_delete`), and the confirm dialog
+    let can_delete = use_signal({
+        let state = state.clone();
+        let editing = editing.clone();
+        move || editing.as_ref().is_some_and(|w| state.with_conn(|conn| WalletRepo::can_delete(conn, &w.id).unwrap_or(false)))
+    });
+    let mut confirm_delete = use_signal(|| false);
 
     let title = if editing.is_some() { t.t("Edit Wallet") } else { t.t("New Wallet") };
 
@@ -223,6 +230,57 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
                 style: "padding:14px; background:#6366f1; color:#fff; border:none; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; margin-top:4px;",
                 onclick: submit,
                 if editing.is_some() { {t.t("Update Wallet")} } else { {t.t("Create Wallet")} }
+            }
+
+            // ── Delete (unused wallets only) ──
+            if let Some(wallet) = editing.clone() {
+                if can_delete() {
+                    button {
+                        style: "padding:12px; background:transparent; color:#ef4444; border:1px solid #ef4444; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer;",
+                        onclick: move |_| confirm_delete.set(true),
+                        {t.t("🗑 Delete wallet")}
+                    }
+                } else {
+                    div { style: "font-size:12px; color:#9ca3af; text-align:center;",
+                        {t.t("This wallet has transactions, so it can't be deleted.")}
+                    }
+                }
+
+                if confirm_delete() {
+                    div {
+                        style: "position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px;",
+                        div {
+                            style: "background:#fff; border-radius:16px; padding:22px; max-width:320px; width:100%;",
+                            h3 { style: "margin:0 0 8px; font-size:17px; font-weight:700;", {t.t("Delete wallet?")} }
+                            p { style: "margin:0 0 18px; font-size:14px; color:#6b7280; line-height:1.5;",
+                                {t.t("\"{name}\" will be permanently deleted.").replace("{name}", &wallet.name)}
+                            }
+                            div { style: "display:flex; gap:10px;",
+                                button {
+                                    style: "flex:1; padding:11px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; font-size:14px; cursor:pointer;",
+                                    onclick: move |_| confirm_delete.set(false),
+                                    {t.t("Cancel")}
+                                }
+                                button {
+                                    style: "flex:1; padding:11px; border:none; border-radius:8px; background:#ef4444; color:#fff; font-size:14px; font-weight:700; cursor:pointer;",
+                                    onclick: {
+                                        let state = state.clone();
+                                        let mut error_msg = error_msg.clone();
+                                        let id = wallet.id.clone();
+                                        move |_| {
+                                            confirm_delete.set(false);
+                                            match state.with_conn(|conn| WalletRepo::delete(conn, &id)) {
+                                                Ok(())  => view.set(WalletView::List),
+                                                Err(e)  => error_msg.set(e.to_string()),
+                                            }
+                                        }
+                                    },
+                                    {t.t("Delete")}
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

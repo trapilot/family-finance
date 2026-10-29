@@ -112,6 +112,35 @@ impl WalletRepo {
         Ok(())
     }
 
+    /// A wallet can be deleted when nothing but its own opening balance uses it:
+    /// no other transactions (from or to it), holdings or reminders.
+    pub fn can_delete(conn: &Connection, id: &str) -> Result<bool> {
+        let used: i64 = conn.query_row(
+            "SELECT
+               (SELECT COUNT(*) FROM transactions
+                 WHERE (wallet_id = ?1 OR to_wallet_id = ?1) AND txn_type <> 'opening_balance')
+             + (SELECT COUNT(*) FROM holdings  WHERE wallet_id = ?1)
+             + (SELECT COUNT(*) FROM reminders WHERE wallet_id = ?1 OR to_wallet_id = ?1)",
+            [id],
+            |row| row.get(0),
+        )?;
+        Ok(used == 0)
+    }
+
+    /// Permanently delete an unused wallet (see `can_delete`) with its opening balance record
+    pub fn delete(conn: &Connection, id: &str) -> Result<()> {
+        if !Self::can_delete(conn, id)? {
+            return Err(AppError::Validation("This wallet has transactions and can't be deleted".into()));
+        }
+        conn.execute_batch("BEGIN IMMEDIATE")?;
+        let result = conn.execute("DELETE FROM transactions WHERE wallet_id = ?1 AND txn_type = 'opening_balance'", [id])
+            .and_then(|_| conn.execute("DELETE FROM wallets WHERE id = ?1", [id]));
+        match result {
+            Ok(_)  => { conn.execute_batch("COMMIT")?; Ok(()) }
+            Err(e) => { let _ = conn.execute_batch("ROLLBACK"); Err(e.into()) }
+        }
+    }
+
     pub fn reorder(conn: &Connection, ordered_ids: &[String]) -> Result<()> {
         for (i, id) in ordered_ids.iter().enumerate() {
             conn.execute(
@@ -129,4 +158,37 @@ fn now_ts() -> i64 {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{Currency, IncomeType, NewTransaction, WalletType};
+    use crate::services::TransactionService;
+    use rust_decimal::Decimal;
+
+    #[test]
+    fn only_wallets_with_just_an_opening_balance_can_be_deleted() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::run(&conn).unwrap();
+        let wallet = |name: &str| {
+            let w = WalletRepo::create(&conn, &NewWallet {
+                name: name.into(), wallet_type: WalletType::Cash, currency: Currency::VND,
+                balance: Decimal::ZERO, broker: None, icon: None, color: None, sort_order: 0,
+            }).unwrap();
+            TransactionService::execute(&conn, &NewTransaction::opening_balance(&w.id, Decimal::from(500), Currency::VND, 1)).unwrap();
+            w.id
+        };
+        let (unused, used) = (wallet("UNUSED"), wallet("USED"));
+        TransactionService::execute(&conn, &NewTransaction::income(&used, Decimal::from(10), Currency::VND, IncomeType::Salary, 2)).unwrap();
+
+        assert!(WalletRepo::can_delete(&conn, &unused).unwrap());
+        assert!(!WalletRepo::can_delete(&conn, &used).unwrap());
+        assert!(WalletRepo::delete(&conn, &used).is_err());
+
+        WalletRepo::delete(&conn, &unused).unwrap();
+        assert!(WalletRepo::find_by_id(&conn, &unused).unwrap().is_none());
+        let left: i64 = conn.query_row("SELECT COUNT(*) FROM transactions WHERE wallet_id = ?1", [&unused], |r| r.get(0)).unwrap();
+        assert_eq!(left, 0, "its opening balance record went with it");
+    }
 }

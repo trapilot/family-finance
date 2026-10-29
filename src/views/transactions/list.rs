@@ -244,7 +244,7 @@ fn TxnRow(
             }
 
             // Amount with the actions under it, flush to the right edge
-            div { style: "display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0;",
+            div { style: "align-self:flex-start; display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0;",
                 div { style: "font-size:14px; font-weight:700; color:{amount_color}; white-space:nowrap;", "{amount_str}" }
                 div { style: "display:flex; gap:2px;",
                     button {

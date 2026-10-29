@@ -53,13 +53,13 @@ pub struct NewCategory {
 /// System default categories seeded on first launch
 pub fn default_categories() -> Vec<NewCategory> {
     vec![
-        NewCategory { name: "Food & Drinks".into(),     icon: Some("🍜".into()), color: Some("#FF6B6B".into()), budget_amount: None, parent_id: None, sort_order: 1  },
+        NewCategory { name: "Food & Drinks".into(),      icon: Some("🍜".into()), color: Some("#FF6B6B".into()), budget_amount: None, parent_id: None, sort_order: 1  },
         NewCategory { name: "Transport".into(),          icon: Some("🚗".into()), color: Some("#4ECDC4".into()), budget_amount: None, parent_id: None, sort_order: 2  },
         NewCategory { name: "Shopping".into(),           icon: Some("🛍️".into()), color: Some("#45B7D1".into()), budget_amount: None, parent_id: None, sort_order: 3  },
         NewCategory { name: "Health".into(),             icon: Some("💊".into()), color: Some("#96CEB4".into()), budget_amount: None, parent_id: None, sort_order: 4  },
         NewCategory { name: "Entertainment".into(),      icon: Some("🎮".into()), color: Some("#FFEAA7".into()), budget_amount: None, parent_id: None, sort_order: 5  },
         NewCategory { name: "Education".into(),          icon: Some("📚".into()), color: Some("#DDA0DD".into()), budget_amount: None, parent_id: None, sort_order: 6  },
-        NewCategory { name: "Bills & Utilities".into(),  icon: Some("🏠".into()), color: Some("#F0E68C".into()), budget_amount: None, parent_id: None, sort_order: 7  },
+        NewCategory { name: "Bills".into(),              icon: Some("🏠".into()), color: Some("#F0E68C".into()), budget_amount: None, parent_id: None, sort_order: 7  },
         NewCategory { name: "Personal Care".into(),      icon: Some("💆".into()), color: Some("#FFB6C1".into()), budget_amount: None, parent_id: None, sort_order: 8  },
         NewCategory { name: "Travel".into(),             icon: Some("✈️".into()), color: Some("#87CEEB".into()), budget_amount: None, parent_id: None, sort_order: 9  },
         NewCategory { name: "Other".into(),              icon: Some("📦".into()), color: Some("#D3D3D3".into()), budget_amount: None, parent_id: None, sort_order: 10 },

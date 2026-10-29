@@ -86,6 +86,22 @@ impl Bill {
         from.iter_days().take(70).find(|d| self.is_unpaid_on(*d))
     }
 
+    /// This bill with a new name / amount / due day. If it was paid for the month open on
+    /// `today`, it stays paid under the new due day too (no sudden notifications after an edit).
+    pub fn edited(&self, input: &NewBill, today: NaiveDate) -> Bill {
+        let was_paid = self.paid_month.as_deref() == Some(self.cycle_key(today).as_str());
+        let mut bill = Bill {
+            name:    input.name.clone(),
+            amount:  input.amount,
+            due_day: input.due_day.clamp(1, 31),
+            ..self.clone()
+        };
+        if was_paid {
+            bill.paid_month = Some(bill.cycle_key(today));
+        }
+        bill
+    }
+
     fn created_day(&self) -> NaiveDate {
         Local.timestamp_opt(self.created_at, 0).single()
             .map(|dt| dt.date_naive())
@@ -133,6 +149,27 @@ mod tests {
         assert_eq!(b.due_in_month(d(2026, 2, 10)), d(2026, 2, 28));
         assert_eq!(b.due_in_month(d(2026, 4, 1)), d(2026, 4, 30));
         assert_eq!(b.cycle_key(d(2026, 3, 1)), "2026-02");
+    }
+
+    #[test]
+    fn editing_the_due_day_keeps_this_month_paid() {
+        let today = d(2026, 11, 10);
+        let new_day = |day| NewBill { name: "Water".into(), amount: None, due_day: day };
+
+        // Paid for November (due the 5th), moved to the 20th: November's due day is still
+        // ahead, so the open month is October; it must stay quiet until 20 Nov
+        let mut b = bill(5, d(2026, 9, 1));
+        b.paid_month = Some("2026-11".into());
+        let moved = b.edited(&new_day(20), today);
+        assert_eq!(moved.name, "Water");
+        assert!(!moved.is_unpaid_on(today));
+        assert_eq!(moved.next_due(today), Some(d(2026, 11, 20)));
+
+        // Unpaid bill moved earlier starts notifying from its new day
+        let b = bill(20, d(2026, 9, 1));
+        let moved = b.edited(&new_day(8), today);
+        assert!(moved.is_unpaid_on(today));
+        assert_eq!(moved.cycle_due(today), d(2026, 11, 8));
     }
 
     #[test]

@@ -398,6 +398,7 @@ fn vi(en: &str) -> Option<&'static str> {
         "Due on day"                           => "Đến hạn ngày",
         "of every month"                       => "hằng tháng",
         "+ Add bill"                           => "+ Thêm hoá đơn",
+        "✏️ Editing"                           => "✏️ Đang sửa",
         "Enter the bill name"                  => "Nhập tên hoá đơn",
         "Day must be 1–31"                     => "Ngày phải từ 1 đến 31",
         "Day {n} of every month"               => "Ngày {n} hằng tháng",

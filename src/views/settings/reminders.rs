@@ -188,6 +188,8 @@ pub fn BillsSettings() -> Element {
     let mut amount  = use_signal(String::new);
     let mut due_day = use_signal(|| Local::now().day().to_string());
     let mut error   = use_signal(String::new);
+    // Bill being edited in the form; None = the form adds a new bill
+    let mut editing = use_signal(|| None::<Bill>);
 
     let reload = {
         let state = state.clone();
@@ -211,7 +213,15 @@ pub fn BillsSettings() -> Element {
         }
     };
 
-    let add = {
+    let mut reset_form = move || {
+        name.set(String::new());
+        amount.set(String::new());
+        due_day.set(Local::now().day().to_string());
+        error.set(String::new());
+        editing.set(None);
+    };
+
+    let save = {
         let mut update = update.clone();
         move |_| {
             let bill_name = name.read().trim().to_string();
@@ -228,10 +238,14 @@ pub fn BillsSettings() -> Element {
                 amount:  amount.read().parse::<Decimal>().ok().filter(|a| !a.is_zero()),
                 due_day: day,
             };
-            update(Box::new(move |conn| BillRepo::create(conn, &input)));
-            name.set(String::new());
-            amount.set(String::new());
-            error.set(String::new());
+            match editing() {
+                Some(old) => {
+                    let bill = old.edited(&input, Local::now().date_naive());
+                    update(Box::new(move |conn| BillRepo::update(conn, &bill)));
+                }
+                None => update(Box::new(move |conn| BillRepo::create(conn, &input))),
+            }
+            reset_form();
         }
     };
 
@@ -245,8 +259,17 @@ pub fn BillsSettings() -> Element {
                 {t.t("From the due day, notify every day until you mark the bill paid for that month. Next month it starts again.")}
             }
 
-            // ── Add ──
-            div { style: "display:flex; flex-direction:column; gap:8px; background:#f9fafb; border-radius:10px; padding:12px;",
+            // ── Add / edit ──
+            div {
+                id: "bill-form",
+                style: if editing.read().is_some() {
+                    "display:flex; flex-direction:column; gap:8px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:10px; padding:12px;"
+                } else {
+                    "display:flex; flex-direction:column; gap:8px; background:#f9fafb; border-radius:10px; padding:12px;"
+                },
+                if let Some(b) = editing.read().as_ref() {
+                    div { style: "font-size:13px; font-weight:700; color:#4338ca;", {t.t("✏️ Editing")} " {b.name}" }
+                }
                 input {
                     style: INPUT_STYLE,
                     r#type: "text",
@@ -274,10 +297,19 @@ pub fn BillsSettings() -> Element {
                 if !error.read().is_empty() {
                     div { style: "font-size:12px; color:#ef4444;", "{error}" }
                 }
-                button {
-                    style: "border:none; background:#6366f1; color:#fff; border-radius:8px; padding:10px; font-size:14px; font-weight:600; cursor:pointer;",
-                    onclick: add,
-                    {t.t("+ Add bill")}
+                div { style: "display:flex; gap:8px;",
+                    if editing.read().is_some() {
+                        button {
+                            style: "flex:1; border:1px solid #e5e7eb; background:#fff; color:#374151; border-radius:8px; padding:10px; font-size:14px; cursor:pointer;",
+                            onclick: move |_| reset_form(),
+                            {t.t("Cancel")}
+                        }
+                    }
+                    button {
+                        style: "flex:2; border:none; background:#6366f1; color:#fff; border-radius:8px; padding:10px; font-size:14px; font-weight:600; cursor:pointer;",
+                        onclick: save,
+                        if editing.read().is_some() { {t.t("Save")} } else { {t.t("+ Add bill")} }
+                    }
                 }
             }
 
@@ -296,10 +328,11 @@ pub fn BillsSettings() -> Element {
                     };
                     let status_color = if bill.is_paused { "#f59e0b" } else if unpaid { "#ef4444" } else { "#10b981" };
                     let schedule = t.t("Day {n} of every month").replace("{n}", &bill.due_day.to_string());
-                    let amount = bill.amount.map(fmt_vnd);
+                    let amount_label = bill.amount.map(fmt_vnd);
                     let paused = bill.is_paused;
                     let cycle = bill.cycle_key(today);
                     let (id_paid, id_pause, id_delete) = (bill.id.clone(), bill.id.clone(), bill.id.clone());
+                    let bill_edit = bill.clone();
                     let (mut update_paid, mut update_pause, mut update_delete) = (update.clone(), update.clone(), update.clone());
                     rsx! {
                         div {
@@ -307,7 +340,7 @@ pub fn BillsSettings() -> Element {
                             style: "display:flex; gap:8px; align-items:flex-start; border-top:1px solid #f3f4f6; padding-top:12px;",
                             div { style: "flex:1; min-width:0;",
                                 div { style: "font-size:14px; font-weight:700; color:#1f2937; overflow-wrap:anywhere;", "🧾 {bill.name}" }
-                                if let Some(a) = amount {
+                                if let Some(a) = amount_label {
                                     div { style: "font-size:13px; color:#374151;", "{a}" }
                                 }
                                 div { style: "font-size:12px; color:#6b7280; margin-top:2px;", "{schedule}" }
@@ -334,6 +367,19 @@ pub fn BillsSettings() -> Element {
                                     }
                                 }
                                 button {
+                                    style: "border:none; background:#eef2ff; color:#4338ca; border-radius:8px; padding:6px 10px; font-size:13px; cursor:pointer;",
+                                    onclick: move |_| {
+                                        name.set(bill_edit.name.clone());
+                                        amount.set(bill_edit.amount.map(|a| a.normalize().to_string()).unwrap_or_default());
+                                        due_day.set(bill_edit.due_day.to_string());
+                                        error.set(String::new());
+                                        editing.set(Some(bill_edit.clone()));
+                                        // The form is above the list: bring it into view
+                                        let _ = document::eval("document.getElementById('bill-form')?.scrollIntoView({behavior:'smooth', block:'center'})");
+                                    },
+                                    {t.t("Edit")}
+                                }
+                                button {
                                     style: "border:none; background:#f3f4f6; color:#374151; border-radius:8px; padding:6px 10px; font-size:13px; cursor:pointer;",
                                     onclick: move |_| {
                                         let id = id_pause.clone();
@@ -345,6 +391,7 @@ pub fn BillsSettings() -> Element {
                                     style: "border:none; background:#fef2f2; color:#ef4444; border-radius:8px; padding:6px 10px; font-size:13px; cursor:pointer;",
                                     onclick: move |_| {
                                         let id = id_delete.clone();
+                                        if editing.read().as_ref().is_some_and(|b| b.id == id) { reset_form(); }
                                         update_delete(Box::new(move |conn| BillRepo::delete(conn, &id)));
                                     },
                                     {t.t("Delete")}

@@ -27,6 +27,21 @@ impl BillRepo {
         rows.collect::<rusqlite::Result<Vec<_>>>().map_err(Into::into)
     }
 
+    /// Save name, amount, due day and paid month
+    pub fn update(conn: &Connection, bill: &Bill) -> Result<()> {
+        conn.execute(
+            "UPDATE bills SET name = ?2, amount = ?3, due_day = ?4, paid_month = ?5 WHERE id = ?1",
+            rusqlite::params![
+                bill.id,
+                bill.name,
+                bill.amount.map(decimal_to_f64),
+                bill.due_day.clamp(1, 31),
+                bill.paid_month,
+            ],
+        )?;
+        Ok(())
+    }
+
     /// Mark a month ("YYYY-MM") paid, or `None` to undo
     pub fn set_paid_month(conn: &Connection, id: &str, month: Option<&str>) -> Result<()> {
         conn.execute("UPDATE bills SET paid_month = ?2 WHERE id = ?1", rusqlite::params![id, month])?;

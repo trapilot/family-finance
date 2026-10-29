@@ -21,10 +21,36 @@ pub fn get() -> Arc<Mutex<Connection>> {
     DB.get().expect("Database not initialized — call db::init() first").clone()
 }
 
-/// Data every database needs: system categories and the running app version
+/// Data every database needs: system categories, a default CASH wallet and the running app version
 pub fn seed(conn: &Connection) -> crate::error::Result<()> {
-    crate::repository::CategoryRepo::seed_defaults(conn)?;
-    crate::repository::SettingsRepo::set_app_version(conn, env!("CARGO_PKG_VERSION"))
+    use crate::repository::{CategoryRepo, SettingsRepo};
+    CategoryRepo::seed_defaults(conn)?;
+    seed_default_wallet(conn)?;
+    SettingsRepo::set_app_version(conn, env!("CARGO_PKG_VERSION"))
+}
+
+/// Once per database: a CASH wallet (VND, opening balance 0) if there are no wallets yet.
+/// It's an ordinary wallet — editable and deletable — and never re-created afterwards.
+fn seed_default_wallet(conn: &Connection) -> crate::error::Result<()> {
+    use crate::models::{Currency, NewTransaction, NewWallet, WalletType};
+    use crate::repository::{SettingsRepo, WalletRepo};
+    use rust_decimal::Decimal;
+
+    if SettingsRepo::is_default_wallet_created(conn)? {
+        return Ok(());
+    }
+    let no_wallets: bool = conn.query_row("SELECT COUNT(*) = 0 FROM wallets", [], |r| r.get(0))?;
+    if no_wallets {
+        let wallet = WalletRepo::create(conn, &NewWallet {
+            name: "CASH".into(), wallet_type: WalletType::Cash, currency: Currency::VND,
+            balance: Decimal::ZERO, broker: None, icon: None, color: None, sort_order: 0,
+        })?;
+        // Same as the wallet form: every wallet starts with an (editable) opening balance record
+        let mut opening = NewTransaction::opening_balance(&wallet.id, Decimal::ZERO, Currency::VND, crate::views::now_ts());
+        opening.note = Some("Opening Balance".into());
+        crate::services::TransactionService::execute(conn, &opening)?;
+    }
+    SettingsRepo::set_default_wallet_created(conn)
 }
 
 /// "Forgot PIN": close the database, delete its files and start over with an empty,
@@ -56,7 +82,23 @@ pub fn reset() -> crate::error::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::repository::{CategoryRepo, SettingsRepo};
+    use crate::repository::{CategoryRepo, SettingsRepo, WalletRepo};
+
+    #[test]
+    fn default_cash_wallet_is_created_once() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        super::migrations::run(&conn).unwrap();
+        super::seed(&conn).unwrap();
+        let wallets = WalletRepo::list_active(&conn).unwrap();
+        assert_eq!(wallets.len(), 1);
+        assert_eq!(wallets[0].name, "CASH");
+        assert!(crate::services::TransactionService::find_opening_balance(&conn, &wallets[0].id).unwrap().is_some());
+
+        // Deleted by the user: the next launch doesn't bring it back
+        conn.execute_batch("DELETE FROM transactions; DELETE FROM wallets;").unwrap();
+        super::seed(&conn).unwrap();
+        assert!(WalletRepo::list_active(&conn).unwrap().is_empty());
+    }
 
     #[test]
     fn reset_deletes_everything_and_reseeds() {
@@ -78,6 +120,8 @@ mod tests {
         let families: i64 = conn.query_row("SELECT COUNT(*) FROM families", [], |r| r.get(0)).unwrap();
         assert_eq!(families, 0);
         assert!(!CategoryRepo::list(&conn).unwrap().is_empty(), "default categories re-seeded");
+        let wallets: Vec<String> = crate::repository::WalletRepo::list_active(&conn).unwrap().into_iter().map(|w| w.name).collect();
+        assert_eq!(wallets, ["CASH"], "default wallet re-created");
         assert!(path.exists(), "a fresh file is in place");
         drop(conn);
         let _ = std::fs::remove_dir_all(&dir);

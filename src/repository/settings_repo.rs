@@ -10,6 +10,7 @@ impl SettingsRepo {
     const KEY_APP_VERSION: &'static str = "app_version";
     const KEY_REMINDER_INTERVAL: &'static str = "reminder_interval_hours";
     const KEY_REMINDER_START: &'static str = "reminder_start_time";
+    const KEY_DEFAULT_WALLET: &'static str = "default_wallet_created";
 
     fn get(conn: &Connection, key: &str) -> Result<Option<String>> {
         Ok(conn.query_row(
@@ -25,6 +26,15 @@ impl SettingsRepo {
             rusqlite::params![key, value],
         )?;
         Ok(())
+    }
+
+    /// Whether the default CASH wallet was already offered (so deleting it doesn't bring it back)
+    pub fn is_default_wallet_created(conn: &Connection) -> Result<bool> {
+        Ok(Self::get(conn, Self::KEY_DEFAULT_WALLET)?.is_some())
+    }
+
+    pub fn set_default_wallet_created(conn: &Connection) -> Result<()> {
+        Self::set(conn, Self::KEY_DEFAULT_WALLET, "1")
     }
 
     /// UI language code ("en" / "vi").

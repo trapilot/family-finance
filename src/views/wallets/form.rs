@@ -47,7 +47,7 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
         let editing = editing.clone();
 
         move |_: MouseEvent| {
-            let name_val = name.read().trim().to_string();
+            let name_val = name.read().trim().to_uppercase();
             if name_val.is_empty() {
                 error_msg.set(t.t("Name is required").into());
                 return;
@@ -149,9 +149,11 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
             input {
                 style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;",
                 r#type: "text",
+                // Wallet names are UPPERCASE: caps keyboard on phones, and converted as you type
+                autocapitalize: "characters",
                 placeholder: t.t("e.g. HSBC"),
                 value: "{name.read()}",
-                oninput: move |e| { name.set(e.value()); },
+                oninput: move |e| { name.set(e.value().to_uppercase()); },
             }
 
             // ── Currency ──

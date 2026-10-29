@@ -52,17 +52,15 @@ pub fn TypeTransactions(drill: TypeDrill, on_back: EventHandler<()>) -> Element 
         };
         let wallets: HashMap<String, String> = WalletRepo::list_active(conn).unwrap_or_default()
             .into_iter().map(|w| (w.id, w.name)).collect();
-        // id → (icon, translated name)
-        let categories: HashMap<String, (String, String)> = CategoryRepo::list(conn).unwrap_or_default()
-            .into_iter().map(|c| (c.id, (c.icon.unwrap_or_default(), t.tr(&c.name)))).collect();
+        let categories: HashMap<String, String> = CategoryRepo::list(conn).unwrap_or_default()
+            .into_iter().map(|c| (c.id, format!("{} {}", c.icon.unwrap_or_default(), t.tr(&c.name)))).collect();
         (TransactionRepo::list(conn, &filter).unwrap_or_default(), wallets, categories)
     });
     let total: Decimal = txns.iter().map(|tx| tx.amount).sum();
 
     // A category drill is titled by the category ("🍜 Food & Drinks"), otherwise by the type
     let type_label = drill.category_id.as_deref()
-        .and_then(|c| categories.get(c))
-        .map(|(icon, name)| format!("{icon} {name}"))
+        .and_then(|c| categories.get(c).cloned())
         .unwrap_or_else(|| t.code(&drill.txn_type.to_string()));
     let period = if drill.from == drill.to {
         month_label(drill.from.0, drill.from.1)
@@ -138,17 +136,14 @@ fn TxnLine(txn: Transaction, detail: String) -> Element {
     }
 }
 
-/// `in_category`: the screen is one category (named in its title), so rows keep only its icon
-fn detail_line(txn: &Transaction, wallets: &HashMap<String, String>, categories: &HashMap<String, (String, String)>, in_category: bool) -> String {
+/// `in_category`: the list is already one category (it's in the title), so rows show only the wallet
+fn detail_line(txn: &Transaction, wallets: &HashMap<String, String>, categories: &HashMap<String, String>, in_category: bool) -> String {
     let wallet = |id: &str| wallets.get(id).cloned().unwrap_or_default();
     match txn.txn_type {
+        TransactionType::Expense if in_category => wallet(&txn.wallet_id),
         TransactionType::Expense => {
-            let (icon, name) = txn.category_id.as_deref().and_then(|c| categories.get(c)).cloned().unwrap_or_default();
-            let category = if in_category { icon } else { format!("{icon} {name}") };
-            match category.trim() {
-                ""       => wallet(&txn.wallet_id),
-                category => format!("{category} · {}", wallet(&txn.wallet_id)),
-            }
+            let category = txn.category_id.as_deref().and_then(|c| categories.get(c)).cloned().unwrap_or_default();
+            format!("{category} · {}", wallet(&txn.wallet_id))
         }
         TransactionType::Transfer => {
             format!("{} → {}", wallet(&txn.wallet_id), txn.to_wallet_id.as_deref().map(wallet).unwrap_or_default())

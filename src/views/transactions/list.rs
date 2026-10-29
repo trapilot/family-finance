@@ -4,9 +4,10 @@ use crate::i18n::use_i18n;
 use crate::app::AppState;
 use crate::models::{Transaction, TransactionType};
 use crate::repository::transaction_repo::TxnFilter;
-use crate::repository::TransactionRepo;
+use crate::repository::{CategoryRepo, TransactionRepo};
 use crate::services::TransactionService;
 use crate::views::{fmt_currency, ts_to_date_str};
+use std::collections::HashMap;
 use super::TxnView;
 
 #[component]
@@ -23,6 +24,16 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
     ]);
     let mut search_note = use_signal(|| String::new());
     let mut show_confirm_delete = use_signal(|| None::<String>); // holds txn id
+    // category id → (icon, name) for the rows
+    let categories = use_signal({
+        let state = state.clone();
+        move || -> HashMap<String, (String, String)> {
+            state.with_conn(|conn| CategoryRepo::list(conn).unwrap_or_default())
+                .into_iter()
+                .map(|c| (c.id, (c.icon.unwrap_or_default(), c.name)))
+                .collect()
+        }
+    });
 
     // ── Load ──
     let mut txns_effect = txns.clone();
@@ -120,6 +131,9 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
 
             for txn in visible.iter() {
                 TxnRow {
+                    category: txn.category_id.as_deref()
+                        .and_then(|id| categories.read().get(id).cloned())
+                        .map(|(icon, name)| format!("{icon} {}", t.tr(&name)).trim().to_string()),
                     txn: txn.clone(),
                     on_edit: {
                         let txn = txn.clone();
@@ -187,6 +201,8 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
 #[component]
 fn TxnRow(
     txn: Transaction,
+    /// "🍜 Food & Drinks" for expenses
+    category: Option<String>,
     on_edit: EventHandler<MouseEvent>,
     on_delete: EventHandler<MouseEvent>,
 ) -> Element {
@@ -214,7 +230,12 @@ fn TxnRow(
             }
 
             div { style: "flex:1; min-width:0;",
-                div { style: "font-size:13px; font-weight:600; color:#374151; text-transform:capitalize;", "{type_label}" }
+                div { style: "font-size:13px; font-weight:600; color:#374151; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;",
+                    span { style: "text-transform:capitalize;", "{type_label}" }
+                    if let Some(category) = category {
+                        span { style: "font-weight:500; color:#6b7280;", " · {category}" }
+                    }
+                }
                 if !note.is_empty() {
                     div { style: "font-size:12px; color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;", "{note}" }
                 }

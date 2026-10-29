@@ -37,12 +37,7 @@ fn main() {
     let db = db::init(db_path);
     {
         let conn = db.lock().unwrap();
-
-        repository::CategoryRepo::seed_defaults(&conn)
-            .expect("Failed to seed default categories");
-
-        repository::SettingsRepo::set_app_version(&conn, env!("CARGO_PKG_VERSION"))
-            .expect("Failed to save app version");
+        db::seed(&conn).expect("Failed to seed the database");
     }
 
     // "Done for today" tapped on a reminder notification (may arrive before any UI exists)

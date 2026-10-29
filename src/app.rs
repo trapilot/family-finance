@@ -69,6 +69,7 @@ pub fn App() -> Element {
     let t = use_context_provider(|| I18n::new(lang));
 
     let mut refresh_trigger = use_signal(|| 0);
+    let state_reset = state.clone();
 
     let is_pin_set = use_resource(move || {
         let state = state.clone();
@@ -100,7 +101,15 @@ pub fn App() -> Element {
             } else {
                 rsx! {
                     PinUnlock {
-                        on_unlock: move |_| is_unlocked.set(true)
+                        on_unlock: move |_| is_unlocked.set(true),
+                        // Fresh database: keep the current language, then show PIN setup
+                        on_reset: {
+                            let state = state_reset.clone();
+                            move |_| {
+                                let _ = state.with_conn(|conn| crate::repository::SettingsRepo::set_language(conn, lang().code()));
+                                refresh_trigger += 1;
+                            }
+                        },
                     }
                 }
             }

@@ -6,6 +6,7 @@ pub mod wallets;
 pub mod members;
 pub mod pin;
 pub mod rates;
+pub mod photo_picker;
 
 use dioxus::prelude::*;
 

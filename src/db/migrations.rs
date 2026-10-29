@@ -1,9 +1,11 @@
 use rusqlite::{Connection, Result};
 
+/// The schema only uses CREATE … IF NOT EXISTS / INSERT OR IGNORE, so it runs on every
+/// launch: a table added later also appears in existing databases, no migration needed.
+/// (Adding a column to an existing table would still need one.)
 pub fn run(conn: &Connection) -> Result<()> {
-    let version = get_version(conn)?;
-    if version < 1 {
-        migrate_v1(conn)?;
+    migrate_v1(conn)?;
+    if get_version(conn)? < 1 {
         set_version(conn, 1)?;
     }
     Ok(())
@@ -85,6 +87,15 @@ fn migrate_v1(conn: &Connection) -> Result<()> {
             txn_date       INTEGER NOT NULL,
             created_at     INTEGER NOT NULL
         );
+
+        -- Photos attached to a transaction (receipts…), JPEG; cleared from Settings → Backup
+        CREATE TABLE IF NOT EXISTS transaction_images (
+            id             TEXT PRIMARY KEY,
+            transaction_id TEXT NOT NULL REFERENCES transactions(id),
+            jpeg           BLOB NOT NULL,
+            created_at     INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_txn_image_txn ON transaction_images(transaction_id);
 
         CREATE INDEX IF NOT EXISTS idx_txn_date       ON transactions(txn_date DESC);
         CREATE INDEX IF NOT EXISTS idx_txn_wallet     ON transactions(wallet_id);
@@ -195,7 +206,7 @@ mod tests {
         let tables: Vec<String> = stmt.query_map([], |r| r.get(0)).unwrap().collect::<Result<_>>().unwrap();
         assert_eq!(tables, [
             "bills", "categories", "exchange_rates", "families", "holdings", "member_id_images",
-            "members", "reminders", "settings", "transactions", "wallets",
+            "members", "reminders", "settings", "transaction_images", "transactions", "wallets",
         ]);
     }
 }

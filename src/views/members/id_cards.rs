@@ -7,60 +7,12 @@ use crate::i18n::use_i18n;
 use crate::models::{id_card::jpeg_data_url, IdSide, Member};
 use crate::repository::{FamilyRepo, IdCardRepo, MemberRepo};
 use crate::services::id_card_pdf::{self, CardPair};
+use crate::views::photo_picker::{use_photo_picker, PhotoInput};
 use super::MemberView;
 
 const B64: base64::engine::GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
-// ─── Photo picker (member form) ───────────────────────────────────────────────
-
-/// Dioxus desktop/mobile swaps clicks on file inputs for its own native dialog, which
-/// is empty on iOS. Our inputs (`data-id-photo`) stop the click in the capture phase so
-/// the WebView's own camera / photo-library picker opens; the chosen photo is shrunk to
-/// ≤1600px JPEG here and sent back as `{side, data}` (data = base64, "" on failure).
-const PICK_PHOTO_JS: &str = r#"
-    const old = window.__ffIdPhoto;
-    if (old) {
-        document.removeEventListener('click', old.click, true);
-        document.removeEventListener('change', old.change, true);
-    }
-    const ours = t => t instanceof HTMLInputElement && t.dataset.idPhoto;
-    const click = e => { if (ours(e.target)) e.stopPropagation(); };
-    const change = e => {
-        const input = e.target;
-        if (!ours(input)) return;
-        e.stopPropagation();
-        const side = input.dataset.idPhoto;
-        const file = input.files && input.files[0];
-        input.value = '';
-        if (!file) return;
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-            const s = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
-            const c = document.createElement('canvas');
-            c.width = Math.round(img.naturalWidth * s);
-            c.height = Math.round(img.naturalHeight * s);
-            const ctx = c.getContext('2d');
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(0, 0, c.width, c.height);
-            ctx.drawImage(img, 0, 0, c.width, c.height);
-            URL.revokeObjectURL(url);
-            dioxus.send({ side, data: c.toDataURL('image/jpeg', 0.85).split(',')[1] });
-        };
-        img.onerror = () => { URL.revokeObjectURL(url); dioxus.send({ side, data: '' }); };
-        img.src = url;
-    };
-    document.addEventListener('click', click, true);
-    document.addEventListener('change', change, true);
-    window.__ffIdPhoto = { click, change };
-"#;
-
-/// What `PICK_PHOTO_JS` sends for each chosen photo
-#[derive(serde::Deserialize)]
-struct PickedPhoto {
-    side: String,
-    data: String,
-}
+// ─── Photo slots (member form) ────────────────────────────────────────────────
 
 /// Front + back photo slots. Edits stay in the signals until the form is saved.
 #[component]
@@ -68,17 +20,12 @@ pub fn IdPhotoFields(front: Signal<Option<Vec<u8>>>, back: Signal<Option<Vec<u8>
     let t = use_i18n();
     let mut error = use_signal(|| false);
 
-    use_hook(move || {
-        spawn(async move {
-            let mut eval = document::eval(PICK_PHOTO_JS);
-            while let Ok(msg) = eval.recv::<PickedPhoto>().await {
-                let mut target = if msg.side == "back" { back } else { front };
-                match B64.decode(&msg.data) {
-                    Ok(jpeg) if !jpeg.is_empty() => { target.set(Some(jpeg)); error.set(false); }
-                    _                            => error.set(true),
-                }
-            }
-        });
+    use_photo_picker(move |key, jpeg| {
+        let mut target = if key == "back" { back } else { front };
+        match jpeg {
+            Some(jpeg) => { target.set(Some(jpeg)); error.set(false); }
+            None       => error.set(true),
+        }
     });
 
     rsx! {
@@ -110,12 +57,7 @@ fn PhotoSlot(side: IdSide, photo: Signal<Option<Vec<u8>>>) -> Element {
                 } else {
                     {t.t("📷 Add photo")}
                 }
-                input {
-                    r#type: "file",
-                    accept: "image/*",
-                    style: "display:none;",
-                    "data-id-photo": "{side}",
-                }
+                PhotoInput { key_name: side.to_string() }
             }
             if photo.read().is_some() {
                 button {

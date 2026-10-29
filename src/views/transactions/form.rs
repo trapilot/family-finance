@@ -7,9 +7,11 @@ use crate::app::AppState;
 use crate::models::{
     Currency, IncomeType, NewReminder, NewTransaction, RepeatUnit, Transaction, TransactionType,
 };
-use crate::repository::{CategoryRepo, HoldingRepo, ReminderRepo, WalletRepo};
+use crate::repository::{CategoryRepo, HoldingRepo, ReminderRepo, TxnImageRepo, WalletRepo};
 use crate::services::{ReminderService, TransactionService};
 use crate::views::{date_str_add, date_str_to_ts, now_ts, repeat_unit_label, AmountInput};
+use crate::models::id_card::jpeg_data_url;
+use crate::views::photo_picker::{use_photo_picker, PhotoInput};
 use super::TxnView;
 
 #[component]
@@ -67,6 +69,21 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
     let mut remind_unit  = use_signal(|| RepeatUnit::Month);
 
     let error_msg = use_signal(|| String::new());
+
+    // Photos (receipts…): loaded when editing, saved with the transaction
+    let mut photos = use_signal({
+        let state = state.clone();
+        let editing = editing.clone();
+        move || editing.as_ref()
+            .map(|old| state.with_conn(|conn| TxnImageRepo::list(conn, &old.id).unwrap_or_default()))
+            .unwrap_or_default()
+    });
+    let mut photo_error = use_signal(|| false);
+    let mut preview     = use_signal(|| None::<usize>);
+    use_photo_picker(move |_, jpeg| match jpeg {
+        Some(jpeg) => { photos.write().push(jpeg); photo_error.set(false); }
+        None       => photo_error.set(true),
+    });
 
     // ── Load reference data ──
     use_effect({
@@ -195,10 +212,14 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
 
             let result = state.with_conn(|conn| -> crate::error::Result<()> {
                 // If editing: delete old then insert new (simple approach)
+                // (its photos are deleted with it and re-saved below from `photos`)
                 if let Some(ref old) = editing {
                     let _ = TransactionService::delete(conn, &old.id);
                 }
-                TransactionService::execute(conn, &new_txn)?;
+                let saved = TransactionService::execute(conn, &new_txn)?;
+                for jpeg in photos.read().iter() {
+                    TxnImageRepo::add(conn, &saved.id, jpeg)?;
+                }
                 if let Some(ref reminder) = reminder {
                     ReminderRepo::create(conn, reminder)?;
                     ReminderService::resync(conn)?;
@@ -386,6 +407,50 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                 placeholder: t.t("Add a note…"),
                 value: "{note.read()}",
                 oninput: move |e| { note.set(e.value()); },
+            }
+
+            // ── Photos ──
+            FieldLabel { label: t.t("Photos (optional)") }
+            div { style: "display:flex; gap:8px;",
+                label {
+                    style: "flex:1; padding:10px; border:1px dashed #c7d2fe; border-radius:8px; background:#fff; color:#4f46e5; font-size:14px; font-weight:600; text-align:center; cursor:pointer;",
+                    {t.t("🖼 Upload")}
+                    PhotoInput { key_name: "txn", multiple: true }
+                }
+                label {
+                    style: "flex:1; padding:10px; border:1px dashed #c7d2fe; border-radius:8px; background:#fff; color:#4f46e5; font-size:14px; font-weight:600; text-align:center; cursor:pointer;",
+                    {t.t("📷 Camera")}
+                    PhotoInput { key_name: "txn", camera: true }
+                }
+            }
+            if photo_error() {
+                div { style: "font-size:12px; color:#ef4444;", {t.t("❌ Could not read that photo")} }
+            }
+            if !photos.read().is_empty() {
+                div { style: "display:flex; flex-wrap:wrap; gap:8px;",
+                    for (i, src) in photos.read().iter().map(|j| jpeg_data_url(j)).enumerate() {
+                        div { key: "{i}", style: "position:relative; width:76px; height:76px;",
+                            img {
+                                src,
+                                style: "width:100%; height:100%; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb; cursor:pointer;",
+                                onclick: move |_| preview.set(Some(i)),
+                            }
+                            button {
+                                style: "position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; border:none; background:#ef4444; color:#fff; font-size:12px; line-height:22px; padding:0; cursor:pointer;",
+                                onclick: move |_| { photos.write().remove(i); },
+                                "✕"
+                            }
+                        }
+                    }
+                }
+            }
+            // Full-size view; tap anywhere to close
+            if let Some(src) = preview().and_then(|i| photos.read().get(i).map(|j| jpeg_data_url(j))) {
+                div {
+                    style: "position:fixed; inset:0; background:rgba(0,0,0,.85); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px;",
+                    onclick: move |_| preview.set(None),
+                    img { src, style: "max-width:100%; max-height:100%; object-fit:contain; border-radius:8px;" }
+                }
             }
 
             // ── Recurring reminder (new Income / Transfer) ──

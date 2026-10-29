@@ -181,6 +181,7 @@ impl TransactionRepo {
     }
 
     pub fn delete(conn: &Connection, id: &str) -> Result<()> {
+        conn.execute("DELETE FROM transaction_images WHERE transaction_id = ?1", [id])?;
         let affected = conn.execute("DELETE FROM transactions WHERE id = ?1", [id])?;
         if affected == 0 {
             return Err(AppError::NotFound(format!("transaction '{id}'")));

@@ -7,6 +7,7 @@ pub mod member_repo;
 pub mod rate_repo;
 pub mod reminder_repo;
 pub mod transaction_repo;
+pub mod txn_image_repo;
 pub mod wallet_repo;
 pub mod settings_repo;
 
@@ -19,5 +20,6 @@ pub use member_repo::MemberRepo;
 pub use rate_repo::RateRepo;
 pub use reminder_repo::ReminderRepo;
 pub use transaction_repo::TransactionRepo;
+pub use txn_image_repo::TxnImageRepo;
 pub use wallet_repo::WalletRepo;
 pub use settings_repo::SettingsRepo;

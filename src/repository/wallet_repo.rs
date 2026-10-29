@@ -133,7 +133,10 @@ impl WalletRepo {
             return Err(AppError::Validation("This wallet has transactions and can't be deleted".into()));
         }
         conn.execute_batch("BEGIN IMMEDIATE")?;
-        let result = conn.execute("DELETE FROM transactions WHERE wallet_id = ?1 AND txn_type = 'opening_balance'", [id])
+        let result = conn.execute(
+                "DELETE FROM transaction_images WHERE transaction_id IN
+                   (SELECT id FROM transactions WHERE wallet_id = ?1 AND txn_type = 'opening_balance')", [id])
+            .and_then(|_| conn.execute("DELETE FROM transactions WHERE wallet_id = ?1 AND txn_type = 'opening_balance'", [id]))
             .and_then(|_| conn.execute("DELETE FROM wallets WHERE id = ?1", [id]));
         match result {
             Ok(_)  => { conn.execute_batch("COMMIT")?; Ok(()) }

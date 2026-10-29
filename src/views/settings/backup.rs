@@ -329,6 +329,8 @@ pub fn BackupSettings() -> Element {
             }
 
             // ── Danger zone ──
+            TransactionPhotos {}
+
             DangerZone {}
 
             // ── PIN Verify Modal ──
@@ -387,6 +389,83 @@ fn BackupFileItem(
 }
 
 // ─── Danger zone (reset data) ─────────────────────────────────────────────────
+
+/// How much space transaction photos take, and a button to delete them all
+#[component]
+fn TransactionPhotos() -> Element {
+    let t = use_i18n();
+    let state = use_context::<AppState>();
+    let load = {
+        let state = state.clone();
+        move || state.with_conn(|conn| crate::repository::TxnImageRepo::stats(conn).unwrap_or((0, 0)))
+    };
+    let mut stats = use_signal({ let load = load.clone(); move || load() });
+    let mut confirm = use_signal(|| false);
+    let mut status  = use_signal(String::new);
+
+    let (count, bytes) = stats();
+    let size = format!("{:.1} MB", bytes as f64 / 1_048_576.0);
+
+    rsx! {
+        div {
+            style: "background:#fff; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
+            h2 { style: "margin:0 0 6px; font-size:16px; font-weight:700; color:#1f2937;", {t.t("Transaction photos")} }
+            p { style: "margin:0 0 12px; font-size:13px; color:#6b7280; line-height:1.5;",
+                {t.t("{count} photos · {size}. Deleting them makes the database smaller; the transactions stay.")
+                    .replace("{count}", &count.to_string()).replace("{size}", &size)}
+            }
+            button {
+                style: if count > 0 {
+                    "width:100%; padding:12px; background:transparent; color:#ef4444; border:1px solid #ef4444; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer;"
+                } else {
+                    "width:100%; padding:12px; background:transparent; color:#d1d5db; border:1px solid #e5e7eb; border-radius:10px; font-size:14px; font-weight:600;"
+                },
+                disabled: count == 0,
+                onclick: move |_| confirm.set(true),
+                {t.t("🗑 Clear all transaction photos")}
+            }
+            if !status.read().is_empty() {
+                p { style: "margin:10px 0 0; font-size:13px; color:#374151;", "{status}" }
+            }
+
+            if confirm() {
+                div {
+                    style: "position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px;",
+                    div {
+                        style: "background:#fff; border-radius:16px; padding:22px; max-width:320px; width:100%;",
+                        h3 { style: "margin:0 0 8px; font-size:17px; font-weight:700;", {t.t("Delete all transaction photos?")} }
+                        p { style: "margin:0 0 18px; font-size:14px; color:#6b7280; line-height:1.5;",
+                            {t.t("{count} photos will be permanently deleted. Transactions and ID card photos are kept.").replace("{count}", &count.to_string())}
+                        }
+                        div { style: "display:flex; gap:10px;",
+                            button {
+                                style: "flex:1; padding:11px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; font-size:14px; cursor:pointer;",
+                                onclick: move |_| confirm.set(false),
+                                {t.t("Cancel")}
+                            }
+                            button {
+                                style: "flex:1; padding:11px; border:none; border-radius:8px; background:#ef4444; color:#fff; font-size:14px; font-weight:700; cursor:pointer;",
+                                onclick: {
+                                    let state = state.clone();
+                                    let load = load.clone();
+                                    move |_| {
+                                        confirm.set(false);
+                                        match state.with_conn(crate::repository::TxnImageRepo::clear_all) {
+                                            Ok(())  => status.set(t.t("✅ Transaction photos deleted").to_string()),
+                                            Err(e)  => status.set(format!("❌ {}: {e}", t.t("Delete failed"))),
+                                        }
+                                        stats.set(load());
+                                    }
+                                },
+                                {t.t("Delete")}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 #[component]
 fn DangerZone() -> Element {
@@ -459,6 +538,7 @@ fn DangerZone() -> Element {
 fn delete_all_data(conn: &rusqlite::Connection) -> crate::error::Result<()> {
     conn.execute_batch("
         BEGIN IMMEDIATE;
+        DELETE FROM transaction_images;
         DELETE FROM transactions;
         DELETE FROM reminders;
         DELETE FROM bills;
@@ -507,6 +587,7 @@ fn import_backup(conn: &rusqlite::Connection, json: &str) -> crate::error::Resul
     let result = (|| -> crate::error::Result<()> {
         // Clear existing data
         conn.execute_batch("
+            DELETE FROM transaction_images;
             DELETE FROM transactions;
             DELETE FROM holdings;
             DELETE FROM wallets;
@@ -776,7 +857,7 @@ mod tests {
             }).unwrap();
 
             delete_all_data(&conn).unwrap();
-            for table in ["wallets", "transactions", "reminders", "bills", "holdings", "members", "families", "member_id_images"] {
+            for table in ["wallets", "transactions", "transaction_images", "reminders", "bills", "holdings", "members", "families", "member_id_images"] {
                 assert_eq!(count(&conn, table), 0, "{table} not empty (foreign_keys {foreign_keys})");
             }
         }

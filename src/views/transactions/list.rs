@@ -4,7 +4,7 @@ use crate::i18n::use_i18n;
 use crate::app::AppState;
 use crate::models::{Transaction, TransactionType};
 use crate::repository::transaction_repo::TxnFilter;
-use crate::repository::{CategoryRepo, TransactionRepo};
+use crate::repository::{CategoryRepo, TransactionRepo, TxnImageRepo};
 use crate::services::TransactionService;
 use crate::views::{fmt_currency, ts_to_date_str};
 use std::collections::HashMap;
@@ -24,6 +24,11 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
     ]);
     let mut search_note = use_signal(|| String::new());
     let mut show_confirm_delete = use_signal(|| None::<String>); // holds txn id
+    // Photos per transaction (📷 badge); refreshed whenever the list mounts
+    let photo_counts = use_signal({
+        let state = state.clone();
+        move || state.with_conn(|conn| TxnImageRepo::counts(conn).unwrap_or_default())
+    });
     // category id → (icon, name) for the rows
     let categories = use_signal({
         let state = state.clone();
@@ -131,6 +136,7 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
 
             for txn in visible.iter() {
                 TxnRow {
+                    photos: photo_counts.read().get(&txn.id).copied().unwrap_or(0),
                     category: txn.category_id.as_deref()
                         .and_then(|id| categories.read().get(id).cloned())
                         .map(|(icon, name)| format!("{icon} {}", t.tr(&name)).trim().to_string()),
@@ -203,6 +209,8 @@ fn TxnRow(
     txn: Transaction,
     /// "🍜 Food & Drinks" for expenses; shown instead of the type
     category: Option<String>,
+    /// Number of attached photos
+    photos: i64,
     on_edit: EventHandler<MouseEvent>,
     on_delete: EventHandler<MouseEvent>,
 ) -> Element {
@@ -240,7 +248,10 @@ fn TxnRow(
                 if !note.is_empty() {
                     div { style: "font-size:12px; color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;", "{note}" }
                 }
-                div { style: "font-size:11px; color:#9ca3af;", "{date_str}" }
+                div { style: "font-size:11px; color:#9ca3af;",
+                    "{date_str}"
+                    if photos > 0 { " · 📷 {photos}" }
+                }
             }
 
             // Amount with the actions under it, flush to the right edge

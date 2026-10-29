@@ -374,7 +374,9 @@ fn vi(en: &str) -> Option<&'static str> {
         "Rates updated"                        => "Đã cập nhật tỷ giá",
         "Couldn't update — check your internet connection" => "Không cập nhật được — hãy kiểm tra kết nối internet",
         "Manual"                               => "Nhập tay",
-        "Enter a rate greater than 0"          => "Nhập tỷ giá lớn hơn 0",
+        "Enter a rate greater than 0, or leave it empty" => "Nhập tỷ giá lớn hơn 0, hoặc để trống",
+        "Empty = no rate"                      => "Để trống = chưa có tỷ giá",
+        "Clear (no rate)"                      => "Xoá tỷ giá",
         "No rate yet — update online or tap ✏️ to enter it" => "Chưa có tỷ giá — cập nhật online hoặc bấm ✏️ để nhập",
         "Not included (no rate yet): {list}"   => "Chưa tính (chưa có tỷ giá): {list}",
         // Reminders

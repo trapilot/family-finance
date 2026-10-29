@@ -121,6 +121,7 @@ fn RateRow(currency: Currency, unit: &'static str) -> Element {
     let mut error = use_signal(|| None::<&'static str>);
 
     let rate = rates.read().iter().find(|r| r.currency == currency).cloned();
+    let has_rate = rate.is_some();
     let value = rate.as_ref().map(|r| fmt_vnd(r.rate_vnd)).unwrap_or_else(|| "—".into());
     let meta = rate.as_ref().map(|r| {
         let source = if r.source == "manual" { t.t("Manual") } else { "Yahoo" };
@@ -138,13 +139,20 @@ fn RateRow(currency: Currency, unit: &'static str) -> Element {
     };
 
     let currency_save = currency.clone();
+    let state_clear = state.clone();
     let save = move |_| {
-        let rate_vnd = match input.read().parse::<Decimal>() {
-            Ok(v) if v > Decimal::ZERO => v,
-            _ => { error.set(Some(t.t("Enter a rate greater than 0"))); return; }
+        // Empty = no rate (left out of the converted total)
+        let result = if input.read().trim().is_empty() {
+            state.with_conn(|conn| RateService::clear(conn, currency_save.clone()))
+        } else {
+            let rate_vnd = match input.read().parse::<Decimal>() {
+                Ok(v) if v > Decimal::ZERO => v,
+                _ => { error.set(Some(t.t("Enter a rate greater than 0, or leave it empty"))); return; }
+            };
+            // Saved like a fetched rate; the next online update replaces it when stale
+            state.with_conn(|conn| RateService::save_manual(conn, currency_save.clone(), rate_vnd))
         };
-        // Saved like a fetched rate; the next online update replaces it when stale
-        match state.with_conn(|conn| RateService::save_manual(conn, currency_save.clone(), rate_vnd)) {
+        match result {
             Ok(_) => {
                 rates.set(load_rates(&state));
                 editing.set(false);
@@ -159,8 +167,9 @@ fn RateRow(currency: Currency, unit: &'static str) -> Element {
                 div { style: "font-size:12px; color:#6b7280;", "1 {unit} = ? ₫" }
                 div { style: "display:flex; gap:6px; align-items:center;",
                     AmountInput {
-                        style: "flex:1; min-width:0; border:1px solid #6366f1; border-radius:8px; padding:8px 10px; font-size:14px; outline:none;",
+                        style: "flex:1; min-width:0; border:1px solid #6366f1; border-radius:8px; padding:8px 10px; font-size:16px; outline:none;",
                         value: input(),
+                        placeholder: t.t("Empty = no rate").to_string(),
                         oninput: move |v| input.set(v),
                     }
                     button {
@@ -176,6 +185,20 @@ fn RateRow(currency: Currency, unit: &'static str) -> Element {
                 }
                 if let Some(err) = error() {
                     div { style: "font-size:11px; color:#ef4444;", "{err}" }
+                }
+                if has_rate {
+                    button {
+                        style: "align-self:flex-start; border:none; background:transparent; color:#ef4444; font-size:12px; cursor:pointer; padding:2px 0;",
+                        onclick: {
+                            let state = state_clear.clone();
+                            let currency = currency.clone();
+                            move |_| match state.with_conn(|conn| RateService::clear(conn, currency.clone())) {
+                                Ok(_)  => { rates.set(load_rates(&state)); editing.set(false); }
+                                Err(_) => error.set(Some(t.t("Save failed"))),
+                            }
+                        },
+                        {t.t("Clear (no rate)")}
+                    }
                 }
             }
         } else {

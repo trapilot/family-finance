@@ -71,6 +71,12 @@ impl RateService {
         RateRepo::upsert(conn, &ExchangeRate { currency, rate_vnd, source: "manual".into(), fetched_at: now_ts() })
     }
 
+    /// Forget a rate (e.g. one typed in wrong): the converted total leaves that currency out
+    /// and says so, until a correct rate is entered or fetched.
+    pub fn clear(conn: &Connection, currency: Currency) -> Result<()> {
+        RateRepo::delete(conn, &currency)
+    }
+
     /// Value of the given balances in VND. Currencies without a known rate are left out
     /// and returned in the second value so the UI can say so.
     pub fn total_vnd(vnd: Decimal, usd: Decimal, gold: Decimal, rates: &[ExchangeRate]) -> (Decimal, Vec<Currency>) {
@@ -167,5 +173,18 @@ mod tests {
         let (rate, source) = fetch_usd_vnd(&client).await.unwrap();
         assert_eq!(source, "yahoo");
         assert!(rate > Decimal::from(10_000), "unexpected USD/VND rate {rate}");
+    }
+
+    #[test]
+    fn cleared_rate_is_left_out_of_the_total() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::run(&conn).unwrap();
+        RateService::save_manual(&conn, Currency::GOLD, Decimal::from(8_000_000)).unwrap();
+        RateService::clear(&conn, Currency::GOLD).unwrap();
+
+        let rates = RateRepo::list(&conn).unwrap();
+        let (total, missing) = RateService::total_vnd(Decimal::from(1_000), Decimal::ZERO, Decimal::from(2), &rates);
+        assert_eq!(total, Decimal::from(1_000));
+        assert_eq!(missing, vec![Currency::GOLD]);
     }
 }

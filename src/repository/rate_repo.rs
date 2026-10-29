@@ -16,6 +16,11 @@ impl RateRepo {
         Ok(Self::list(conn)?.into_iter().find(|r| &r.currency == currency))
     }
 
+    pub fn delete(conn: &Connection, currency: &Currency) -> Result<()> {
+        conn.execute("DELETE FROM exchange_rates WHERE currency = ?1", [currency.to_string()])?;
+        Ok(())
+    }
+
     pub fn upsert(conn: &Connection, rate: &ExchangeRate) -> Result<()> {
         conn.execute(
             "INSERT OR REPLACE INTO exchange_rates (currency, rate_vnd, source, fetched_at)

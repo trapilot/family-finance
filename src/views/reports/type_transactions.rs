@@ -105,7 +105,7 @@ pub fn TypeTransactions(drill: TypeDrill, on_back: EventHandler<()>) -> Element 
                 for txn in txns {
                     TxnLine {
                         key: "{txn.id}",
-                        detail: detail_line(&txn, &wallets, &categories),
+                        detail: detail_line(&txn, &wallets, &categories, drill.category_id.is_some()),
                         txn,
                     }
                 }
@@ -136,9 +136,11 @@ fn TxnLine(txn: Transaction, detail: String) -> Element {
     }
 }
 
-fn detail_line(txn: &Transaction, wallets: &HashMap<String, String>, categories: &HashMap<String, String>) -> String {
+/// `in_category`: the list is already one category (it's in the title), so rows show only the wallet
+fn detail_line(txn: &Transaction, wallets: &HashMap<String, String>, categories: &HashMap<String, String>, in_category: bool) -> String {
     let wallet = |id: &str| wallets.get(id).cloned().unwrap_or_default();
     match txn.txn_type {
+        TransactionType::Expense if in_category => wallet(&txn.wallet_id),
         TransactionType::Expense => {
             let category = txn.category_id.as_deref().and_then(|c| categories.get(c)).cloned().unwrap_or_default();
             format!("{category} · {}", wallet(&txn.wallet_id))

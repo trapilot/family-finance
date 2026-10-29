@@ -269,34 +269,15 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                 options: wallets.read().iter().map(|w| (w.id.clone(), format!("{} ({})", w.name, w.currency))).collect()
             }
 
-            // ── Currency ──
-            FieldLabel { label: t.t("Currency") }
-            div {
-                style: "display:flex; gap:8px;",
-                for cur in [Currency::VND, Currency::USD, Currency::GOLD] {
-                    {
-                        let cur_clone = cur.clone();
-                        let is_active = *currency.read() == cur;
-                        rsx! {
-                            button {
-                                style: if is_active {
-                                    "flex:1; padding:8px; border:none; border-radius:8px; background:#6366f1; color:#fff; font-size:13px; font-weight:600; cursor:pointer;"
-                                } else {
-                                    "flex:1; padding:8px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; color:#6b7280; font-size:13px; cursor:pointer;"
-                                },
-                                onclick: move |_| { currency.set(cur_clone.clone()); },
-                                "{cur}"
-                            }
-                        }
-                    }
+            // ── Category (expense) — above the amount ──
+            if *txn_type.read() == TransactionType::Expense {
+                FieldLabel { label: t.t("Category") }
+                SelectField {
+                    value: category_id.read().clone(),
+                    onchange: move |v| { category_id.set(v); },
+                    placeholder: t.t("Select category"),
+                    options: categories.read().iter().map(|c| (c.id.clone(), format!("{} {}", c.icon.as_deref().unwrap_or(""), t.tr(&c.name)))).collect()
                 }
-            }
-
-            // ── Amount ──
-            FieldLabel { label: t.t("Amount") }
-            AmountInput {
-                value: amount_str.read().clone(),
-                oninput: move |v| amount_str.set(v),
             }
 
             // ── Type-specific fields ──
@@ -322,15 +303,8 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                     }
                 },
 
-                TransactionType::Expense => rsx! {
-                    FieldLabel { label: t.t("Category") }
-                    SelectField {
-                        value: category_id.read().clone(),
-                        onchange: move |v| { category_id.set(v); },
-                        placeholder: t.t("Select category"),
-                        options: categories.read().iter().map(|c| (c.id.clone(), format!("{} {}", c.icon.as_deref().unwrap_or(""), t.tr(&c.name)))).collect()
-                    }
-                },
+                // Category is shown above the amount
+                TransactionType::Expense => rsx! {},
 
                 TransactionType::Transfer => rsx! {
                     FieldLabel { label: t.t("To Wallet") }
@@ -341,31 +315,15 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                         options: wallets.read().iter().map(|w| (w.id.clone(), format!("{} ({})", w.name, w.currency))).collect()
                     }
                     FieldLabel { label: t.t("To Amount (leave same for same-currency)") }
-                    AmountInput {
-                        value: to_amount_str.read().clone(),
-                        placeholder: t.t("Received amount"),
-                        oninput: move |v| to_amount_str.set(v),
-                    }
-                    FieldLabel { label: t.t("To Currency") }
                     div {
                         style: "display:flex; gap:8px;",
-                        for cur in [Currency::VND, Currency::USD, Currency::GOLD] {
-                            {
-                                let cur_clone = cur.clone();
-                                let is_active = *to_currency.read() == cur;
-                                rsx! {
-                                    button {
-                                        style: if is_active {
-                                            "flex:1; padding:8px; border:none; border-radius:8px; background:#6366f1; color:#fff; font-size:13px; font-weight:600; cursor:pointer;"
-                                        } else {
-                                            "flex:1; padding:8px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; color:#6b7280; font-size:13px; cursor:pointer;"
-                                        },
-                                        onclick: move |_| { to_currency.set(cur_clone.clone()); },
-                                        "{cur}"
-                                    }
-                                }
-                            }
+                        AmountInput {
+                            value: to_amount_str.read().clone(),
+                            placeholder: t.t("Received amount"),
+                            oninput: move |v| to_amount_str.set(v),
+                            style: AMOUNT_WITH_CURRENCY_STYLE.to_string(),
                         }
+                        CurrencySelect { value: to_currency(), onchange: move |c| to_currency.set(c) }
                     }
                 },
 
@@ -399,6 +357,28 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                 r#type: "date",
                 value: "{txn_date.read()}",
                 oninput: move |e| { txn_date.set(e.value()); },
+            }
+
+            // ── Amount + currency ──
+            FieldLabel { label: t.t("Amount") }
+            div {
+                style: "display:flex; gap:8px;",
+                AmountInput {
+                    value: amount_str.read().clone(),
+                    oninput: move |v| amount_str.set(v),
+                    style: AMOUNT_WITH_CURRENCY_STYLE.to_string(),
+                }
+                CurrencySelect { value: currency(), onchange: move |c| currency.set(c) }
+            }
+
+            // ── Note ──
+            FieldLabel { label: t.t("Note (optional)") }
+            input {
+                style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; background:#fff;",
+                r#type: "text",
+                placeholder: t.t("Add a note…"),
+                value: "{note.read()}",
+                oninput: move |e| { note.set(e.value()); },
             }
 
             // ── Recurring reminder (new Income / Transfer) ──
@@ -456,16 +436,6 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                 }
             }
 
-            // ── Note ──
-            FieldLabel { label: t.t("Note (optional)") }
-            input {
-                style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:14px; outline:none; background:#fff;",
-                r#type: "text",
-                placeholder: t.t("Add a note…"),
-                value: "{note.read()}",
-                oninput: move |e| { note.set(e.value()); },
-            }
-
             // ── Error ──
             if !error_msg.read().is_empty() {
                 div {
@@ -492,6 +462,25 @@ fn FieldLabel(label: &'static str) -> Element {
         label {
             style: "font-size:12px; font-weight:600; color:#374151; text-transform:uppercase; letter-spacing:.5px;",
             "{label}"
+        }
+    }
+}
+
+/// Amount input sharing its row with a `CurrencySelect`
+const AMOUNT_WITH_CURRENCY_STYLE: &str = "flex:1; min-width:0; border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff;";
+
+/// Compact VND / USD / GOLD dropdown shown right of an amount
+#[component]
+fn CurrencySelect(value: Currency, onchange: EventHandler<Currency>) -> Element {
+    rsx! {
+        select {
+            style: "flex-shrink:0; width:96px; border:1px solid #e5e7eb; border-radius:8px; padding:10px 8px; font-size:16px; font-weight:600; outline:none; background:#fff; color:#374151;",
+            onchange: move |e| {
+                if let Ok(c) = e.value().parse::<Currency>() { onchange.call(c); }
+            },
+            for cur in [Currency::VND, Currency::USD, Currency::GOLD] {
+                option { value: "{cur}", selected: cur == value, "{cur}" }
+            }
         }
     }
 }

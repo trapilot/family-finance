@@ -461,6 +461,7 @@ fn delete_all_data(conn: &rusqlite::Connection) -> crate::error::Result<()> {
         BEGIN IMMEDIATE;
         DELETE FROM transactions;
         DELETE FROM reminders;
+        DELETE FROM bills;
         DELETE FROM holdings;
         DELETE FROM member_id_images;
         DELETE FROM members;
@@ -775,7 +776,7 @@ mod tests {
             }).unwrap();
 
             delete_all_data(&conn).unwrap();
-            for table in ["wallets", "transactions", "reminders", "holdings", "members", "families", "member_id_images"] {
+            for table in ["wallets", "transactions", "reminders", "bills", "holdings", "members", "families", "member_id_images"] {
                 assert_eq!(count(&conn, table), 0, "{table} not empty (foreign_keys {foreign_keys})");
             }
         }

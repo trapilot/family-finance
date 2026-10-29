@@ -33,11 +33,19 @@ pub fn Dashboard() -> Element {
     let recent    = use_signal(|| vec![]);
     // Reminders due today, as (id, title, body, done)
     let mut due_today = use_signal(Vec::<(String, String, String, bool)>::new);
+    // Unpaid monthly bills, as (id, month, title, body)
+    let mut unpaid_bills = use_signal(Vec::<(String, String, String, String)>::new);
     let load_due = {
         let state = state.clone();
         move |lang| {
             let today = chrono::Local::now().date_naive();
             state.with_conn(|conn| {
+                if let Ok(bills) = ReminderService::unpaid_bills_on(conn, today) {
+                    unpaid_bills.set(bills.iter().map(|b| {
+                        let (title, body) = ReminderService::describe_bill(b, today, lang);
+                        (b.id.clone(), b.cycle_key(today), title, body)
+                    }).collect());
+                }
                 if let (Ok(due), Ok(wallets)) = (ReminderService::due_on(conn, today), crate::repository::WalletRepo::list_active(conn)) {
                     due_today.set(due.iter().map(|r| {
                         let (title, body) = ReminderService::describe(r, &wallets, lang);
@@ -101,7 +109,7 @@ pub fn Dashboard() -> Element {
             ConvertedTotal { vnd: net_worth.read().vnd, usd: net_worth.read().usd, gold: net_worth.read().gold }
 
             // ── Reminders due today ──
-            if !due_today.read().is_empty() {
+            if !due_today.read().is_empty() || !unpaid_bills.read().is_empty() {
                 div {
                     style: "background:#eef2ff; border:1px solid #c7d2fe; border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:8px;",
                     h2 { style: "margin:0; font-size:15px; font-weight:600; color:#4338ca;", {t.t("🔔 Due today")} }
@@ -127,6 +135,26 @@ pub fn Dashboard() -> Element {
                                     },
                                     {t.t("✓ Done for today")}
                                 }
+                            }
+                        }
+                    }
+                    for (id, month, title, body) in unpaid_bills.read().iter().cloned() {
+                        div { style: "display:flex; gap:10px; align-items:center;",
+                            div { style: "flex:1; min-width:0;",
+                                div { style: "font-size:13px; font-weight:600; color:#b91c1c;", "{title}" }
+                                div { style: "font-size:13px; color:#374151; overflow-wrap:anywhere;", "{body}" }
+                            }
+                            button {
+                                style: "border:none; background:#10b981; color:#fff; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer; flex-shrink:0;",
+                                onclick: {
+                                    let state = state.clone();
+                                    let mut load_due = load_due.clone();
+                                    move |_| {
+                                        let _ = state.with_conn(|conn| ReminderService::mark_bill_paid(conn, &id, &month));
+                                        load_due(t.lang());
+                                    }
+                                },
+                                {t.t("✓ Paid")}
                             }
                         }
                     }

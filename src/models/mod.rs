@@ -1,3 +1,4 @@
+pub mod bill;
 pub mod category;
 pub mod family;
 pub mod holding;
@@ -8,6 +9,7 @@ pub mod reminder;
 pub mod transaction;
 pub mod wallet;
 
+pub use bill::{Bill, NewBill};
 pub use category::{Category, NewCategory};
 pub use family::{Family, NewFamily};
 pub use holding::{AssetType, Holding };

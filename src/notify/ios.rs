@@ -13,12 +13,13 @@ use objc2_user_notifications::{
     UNUserNotificationCenterDelegate,
 };
 
-use super::ScheduledNotification;
+use super::{ActionTitles, Category, ScheduledNotification};
 
 const CATEGORY_REMINDER: &str = "reminder";
+const CATEGORY_BILL: &str = "bill";
 const ACTION_DONE: &str = "done";
 
-/// Called with the notification id when the user taps "Done for today"
+/// Called with the notification id when the user taps "Done for today" / "Paid this month"
 static ON_DONE: OnceLock<fn(&str)> = OnceLock::new();
 /// The center keeps only a weak reference to its delegate, so we keep it alive here
 static DELEGATE: OnceLock<usize> = OnceLock::new();
@@ -88,22 +89,27 @@ pub fn request_permission() {
     );
 }
 
-pub fn replace_all(items: &[ScheduledNotification], now: i64, done_title: &str) {
-    let center = UNUserNotificationCenter::currentNotificationCenter();
-
-    // "Done for today" button (long-press / pull down the notification)
+/// A category whose one button (long-press / pull down the notification) sends ACTION_DONE
+fn category(id: &str, button_title: &str) -> Retained<UNNotificationCategory> {
     let done = UNNotificationAction::actionWithIdentifier_title_options(
         &NSString::from_str(ACTION_DONE),
-        &NSString::from_str(done_title),
+        &NSString::from_str(button_title),
         UNNotificationActionOptions::empty(),
     );
-    let category = UNNotificationCategory::categoryWithIdentifier_actions_intentIdentifiers_options(
-        &NSString::from_str(CATEGORY_REMINDER),
+    UNNotificationCategory::categoryWithIdentifier_actions_intentIdentifiers_options(
+        &NSString::from_str(id),
         &NSArray::from_retained_slice(&[done]),
         &NSArray::new(),
         UNNotificationCategoryOptions::empty(),
-    );
-    center.setNotificationCategories(&NSSet::from_retained_slice(&[category]));
+    )
+}
+
+pub fn replace_all(items: &[ScheduledNotification], now: i64, titles: &ActionTitles) {
+    let center = UNUserNotificationCenter::currentNotificationCenter();
+    center.setNotificationCategories(&NSSet::from_retained_slice(&[
+        category(CATEGORY_REMINDER, titles.done_for_today),
+        category(CATEGORY_BILL, titles.paid_this_month),
+    ]));
 
     center.removeAllPendingNotificationRequests();
     for item in items {
@@ -116,7 +122,10 @@ pub fn replace_all(items: &[ScheduledNotification], now: i64, done_title: &str) 
         content.setBody(&NSString::from_str(&item.body));
         content.setSound(Some(&UNNotificationSound::defaultSound()));
         content.setThreadIdentifier(&NSString::from_str("reminders"));
-        content.setCategoryIdentifier(&NSString::from_str(CATEGORY_REMINDER));
+        content.setCategoryIdentifier(&NSString::from_str(match item.category {
+            Category::Reminder => CATEGORY_REMINDER,
+            Category::Bill     => CATEGORY_BILL,
+        }));
 
         let trigger = UNTimeIntervalNotificationTrigger::triggerWithTimeInterval_repeats(secs, false);
         let request = UNNotificationRequest::requestWithIdentifier_content_trigger(

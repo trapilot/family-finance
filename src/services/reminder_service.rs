@@ -3,10 +3,10 @@ use rusqlite::Connection;
 
 use crate::error::Result;
 use crate::i18n::{translate, Lang};
-use crate::models::{Reminder, TransactionType, Wallet};
-use crate::notify::{self, ScheduledNotification};
-use crate::repository::{ReminderRepo, SettingsRepo, WalletRepo};
-use crate::views::fmt_currency;
+use crate::models::{Bill, Reminder, TransactionType, Wallet};
+use crate::notify::{self, ActionTitles, Category, ScheduledNotification};
+use crate::repository::{BillRepo, ReminderRepo, SettingsRepo, WalletRepo};
+use crate::views::{fmt_currency, fmt_vnd};
 
 /// How far ahead notifications are scheduled (re-synced every time the app opens)
 const SCHEDULE_DAYS: i64 = 14;
@@ -44,16 +44,57 @@ impl ReminderService {
         Self::resync(conn)
     }
 
-    /// Handle the "Done for today" action of a notification with id `reminder:<id>:<day>:<slot>`.
+    /// Handle the notification button: "Done for today" (`reminder:<id>:<day>:<slot>`)
+    /// or "Paid this month" (`bill:<id>:<YYYY-MM>:<day>:<slot>`).
     pub fn handle_done_action(conn: &Connection, notification_id: &str) -> Result<()> {
         let mut parts = notification_id.split(':');
-        let (Some("reminder"), Some(id), Some(day)) = (parts.next(), parts.next(), parts.next()) else {
-            return Ok(());
-        };
-        match NaiveDate::parse_from_str(day, "%Y-%m-%d") {
-            Ok(day) => Self::mark_done(conn, id, day),
-            Err(_)  => Ok(()),
+        match (parts.next(), parts.next(), parts.next()) {
+            (Some("reminder"), Some(id), Some(day)) => match NaiveDate::parse_from_str(day, "%Y-%m-%d") {
+                Ok(day) => Self::mark_done(conn, id, day),
+                Err(_)  => Ok(()),
+            },
+            (Some("bill"), Some(id), Some(month)) => Self::mark_bill_paid(conn, id, month),
+            _ => Ok(()),
         }
+    }
+
+    // ─── Monthly bills ───
+
+    fn bill_notification_id(bill_id: &str, month: &str, day: NaiveDate, slot: u32) -> String {
+        format!("bill:{bill_id}:{month}:{day}:{slot}")
+    }
+
+    /// Bills that notify on `date` (due and not yet paid this month)
+    pub fn unpaid_bills_on(conn: &Connection, date: NaiveDate) -> Result<Vec<Bill>> {
+        Ok(BillRepo::list(conn)?.into_iter().filter(|b| b.is_unpaid_on(date)).collect())
+    }
+
+    /// Stop a bill's notifications until next month's due day ("Paid this month").
+    /// `month` is the cycle key ("YYYY-MM") from `Bill::cycle_key`.
+    pub fn mark_bill_paid(conn: &Connection, bill_id: &str, month: &str) -> Result<()> {
+        BillRepo::set_paid_month(conn, bill_id, Some(month))?;
+        // Clear this cycle's notifications already in Notification Center
+        if let Some(bill) = BillRepo::list(conn)?.into_iter().find(|b| b.id == bill_id) {
+            let today = Local::now().date_naive();
+            let slots = Self::day_slots(conn)?;
+            let delivered: Vec<String> = bill.cycle_due(today).iter_days()
+                .take_while(|d| *d <= today)
+                .flat_map(|d| slots.iter().map(move |&s| Self::bill_notification_id(bill_id, month, d, s)))
+                .collect();
+            notify::clear_delivered(&delivered);
+        }
+        Self::resync(conn)
+    }
+
+    /// Notification title and body for a bill, e.g. ("🧾 Bill to pay", "Electricity · 1.200.000 ₫ · due 05/11")
+    pub fn describe_bill(bill: &Bill, today: NaiveDate, lang: Lang) -> (String, String) {
+        let mut body = bill.name.clone();
+        if let Some(amount) = bill.amount {
+            body.push_str(&format!(" · {}", fmt_vnd(amount)));
+        }
+        let due = bill.cycle_due(today).format("%d/%m");
+        body.push_str(&format!(" · {} {due}", translate(lang, "due")));
+        (translate(lang, "🧾 Bill to pay").to_string(), body)
     }
 
     /// Notification title and body for a reminder, e.g. ("💰 Expected income today", "Vietcombank · +15.000.000 ₫ — Salary")
@@ -75,11 +116,12 @@ impl ReminderService {
     }
 
     /// Every notification for the next `SCHEDULE_DAYS` days: on each due day, one per reminder
-    /// at the first notification time and then every `interval_hours` until midnight.
-    /// Paused reminders and days marked done are skipped.
+    /// (and per unpaid bill) at the first notification time and then every `interval_hours`
+    /// until midnight. Paused reminders/bills, days marked done and months paid are skipped.
     pub fn build_schedule(conn: &Connection, now: DateTime<Local>) -> Result<Vec<ScheduledNotification>> {
         let reminders = ReminderRepo::list(conn)?;
-        if reminders.is_empty() {
+        let bills     = BillRepo::list(conn)?;
+        if reminders.is_empty() && bills.is_empty() {
             return Ok(vec![]);
         }
         let wallets  = WalletRepo::list_active(conn)?;
@@ -93,7 +135,8 @@ impl ReminderService {
             let due: Vec<&Reminder> = reminders.iter()
                 .filter(|r| !r.is_paused && r.is_due(day) && !r.is_done_on(day))
                 .collect();
-            if due.is_empty() {
+            let unpaid: Vec<&Bill> = bills.iter().filter(|b| b.is_unpaid_on(day)).collect();
+            if due.is_empty() && unpaid.is_empty() {
                 continue;
             }
             for &slot in &slots {
@@ -108,6 +151,17 @@ impl ReminderService {
                         title,
                         body,
                         fire_at: at.timestamp(),
+                        category: Category::Reminder,
+                    });
+                }
+                for bill in &unpaid {
+                    let (title, body) = Self::describe_bill(bill, day, lang);
+                    items.push(ScheduledNotification {
+                        id: Self::bill_notification_id(&bill.id, &bill.cycle_key(day), day, slot),
+                        title,
+                        body,
+                        fire_at: at.timestamp(),
+                        category: Category::Bill,
                     });
                 }
             }
@@ -123,7 +177,10 @@ impl ReminderService {
         let now = Local::now();
         let items = Self::build_schedule(conn, now)?;
         let lang = SettingsRepo::get_language(conn)?.map(|c| Lang::from_code(&c)).unwrap_or_default();
-        notify::replace_all(&items, now.timestamp(), translate(lang, "✓ Done for today"));
+        notify::replace_all(&items, now.timestamp(), &ActionTitles {
+            done_for_today:  translate(lang, "✓ Done for today"),
+            paid_this_month: translate(lang, "✓ Paid this month"),
+        });
         Ok(())
     }
 }
@@ -210,6 +267,34 @@ mod tests {
         let id = ReminderRepo::list(&conn).unwrap()[0].id.clone();
         ReminderRepo::set_paused(&conn, &id, true).unwrap();
         assert!(ReminderService::build_schedule(&conn, now).unwrap().is_empty());
+    }
+
+    #[test]
+    fn bill_notifies_daily_from_due_day_until_paid_from_the_notification() {
+        let (conn, _) = setup(12);
+        let day = NaiveDate::from_ymd_opt(2026, 11, 5).unwrap();
+        crate::repository::BillRepo::create(&conn, &crate::models::NewBill {
+            name: "Electricity".into(), amount: Some(Decimal::from(1_200_000)), due_day: 5,
+        }).unwrap();
+        let now = at(day, 6);
+
+        // Bills added "now" only start next cycle; pretend it was added last month
+        conn.execute("UPDATE bills SET created_at = ?1", [at(day, 6).timestamp() - 40 * 86_400]).unwrap();
+
+        let items = ReminderService::build_schedule(&conn, now).unwrap();
+        // 08:00 and 20:00 every day for the whole 14-day window
+        assert_eq!(items.len(), 28);
+        assert_eq!(items[0].fire_at, at(day, 8).timestamp());
+        assert_eq!(items[0].category, Category::Bill);
+        assert_eq!(items[0].title, "🧾 Bill to pay");
+        assert_eq!(items[0].body, "Electricity · 1.200.000 ₫ · due 05/11");
+        assert!(items[0].id.starts_with("bill:") && items[0].id.contains(":2026-11:"));
+
+        // "Paid this month" from a notification stops it until 5 December
+        ReminderService::handle_done_action(&conn, &items[3].id).unwrap();
+        assert!(ReminderService::build_schedule(&conn, now).unwrap().is_empty());
+        let next = crate::repository::BillRepo::list(&conn).unwrap()[0].next_due(day);
+        assert_eq!(next, NaiveDate::from_ymd_opt(2026, 12, 5));
     }
 
     #[test]

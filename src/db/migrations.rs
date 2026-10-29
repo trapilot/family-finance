@@ -34,6 +34,10 @@ pub fn run(conn: &Connection) -> Result<()> {
         migrate_v8(conn)?;
         set_version(conn, 8)?;
     }
+    if version < 9 {
+        migrate_v9(conn)?;
+        set_version(conn, 9)?;
+    }
     Ok(())
 }
 
@@ -239,6 +243,22 @@ fn migrate_v8(conn: &Connection) -> Result<()> {
             jpeg       BLOB NOT NULL,
             updated_at INTEGER NOT NULL,
             PRIMARY KEY (member_id, side)
+        );
+    ")
+}
+
+// ─── V9 — monthly bills: notify from the due day until that month is marked paid ────────
+
+fn migrate_v9(conn: &Connection) -> Result<()> {
+    conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS bills (
+            id         TEXT PRIMARY KEY,
+            name       TEXT NOT NULL,
+            amount     REAL,                       -- optional, VND
+            due_day    INTEGER NOT NULL,           -- 1..31, short months use their last day
+            paid_month TEXT,                       -- 'YYYY-MM' marked paid
+            is_paused  INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL
         );
     ")
 }

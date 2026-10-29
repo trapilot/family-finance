@@ -201,7 +201,7 @@ pub fn TransactionList(view: Signal<TxnView>) -> Element {
 #[component]
 fn TxnRow(
     txn: Transaction,
-    /// "🍜 Food & Drinks" for expenses
+    /// "🍜 Food & Drinks" for expenses; shown instead of the type
     category: Option<String>,
     on_edit: EventHandler<MouseEvent>,
     on_delete: EventHandler<MouseEvent>,
@@ -231,9 +231,10 @@ fn TxnRow(
 
             div { style: "flex:1; min-width:0;",
                 div { style: "font-size:13px; font-weight:600; color:#374151; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;",
-                    span { style: "text-transform:capitalize;", "{type_label}" }
                     if let Some(category) = category {
-                        span { style: "font-weight:500; color:#6b7280;", " · {category}" }
+                        "{category}"
+                    } else {
+                        span { style: "text-transform:capitalize;", "{type_label}" }
                     }
                 }
                 if !note.is_empty() {
@@ -242,20 +243,20 @@ fn TxnRow(
                 div { style: "font-size:11px; color:#9ca3af;", "{date_str}" }
             }
 
-            div { style: "text-align:right; flex-shrink:0;",
-                div { style: "font-size:14px; font-weight:700; color:{amount_color};", "{amount_str}" }
-            }
-
-            div { style: "display:flex; flex-direction:column; gap:4px; flex-shrink:0;",
-                button {
-                    style: "border:none; background:transparent; cursor:pointer; font-size:16px; padding:2px;",
-                    onclick: move |e| { on_edit.call(e); },
-                    "✏️"
-                }
-                button {
-                    style: "border:none; background:transparent; cursor:pointer; font-size:16px; padding:2px;",
-                    onclick: move |e| { on_delete.call(e); },
-                    "🗑"
+            // Amount with the actions under it, flush to the right edge
+            div { style: "display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0;",
+                div { style: "font-size:14px; font-weight:700; color:{amount_color}; white-space:nowrap;", "{amount_str}" }
+                div { style: "display:flex; gap:2px;",
+                    button {
+                        style: "border:none; background:transparent; cursor:pointer; font-size:15px; padding:2px 4px;",
+                        onclick: move |e| { on_edit.call(e); },
+                        "✏️"
+                    }
+                    button {
+                        style: "border:none; background:transparent; cursor:pointer; font-size:15px; padding:2px 0 2px 4px;",
+                        onclick: move |e| { on_delete.call(e); },
+                        "🗑"
+                    }
                 }
             }
         }

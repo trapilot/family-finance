@@ -264,7 +264,11 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
             FieldLabel { label: t.t("From Wallet") }
             SelectField {
                 value: wallet_id.read().clone(),
-                onchange: move |v| { wallet_id.set(v); },
+                // The amount is always in the wallet's currency
+                onchange: move |v: String| {
+                    if let Some(w) = wallets.read().iter().find(|w| w.id == v) { currency.set(w.currency.clone()); }
+                    wallet_id.set(v);
+                },
                 placeholder: t.t("Select wallet"),
                 options: wallets.read().iter().map(|w| (w.id.clone(), format!("{} ({})", w.name, w.currency))).collect()
             }
@@ -310,7 +314,10 @@ pub fn TransactionForm(view: Signal<TxnView>, editing: Option<Transaction>) -> E
                     FieldLabel { label: t.t("To Wallet") }
                     SelectField {
                         value: to_wallet_id.read().clone(),
-                        onchange: move |v| { to_wallet_id.set(v); },
+                        onchange: move |v: String| {
+                            if let Some(w) = wallets.read().iter().find(|w| w.id == v) { to_currency.set(w.currency.clone()); }
+                            to_wallet_id.set(v);
+                        },
                         placeholder: t.t("Select destination wallet"),
                         options: wallets.read().iter().map(|w| (w.id.clone(), format!("{} ({})", w.name, w.currency))).collect()
                     }

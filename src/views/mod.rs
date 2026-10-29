@@ -26,11 +26,9 @@ pub fn fmt_usd(amount: rust_decimal::Decimal) -> String {
     format!("${n:.2}")
 }
 
-/// Format GOLD — e.g. 2.50 chỉ
+/// Format GOLD with only the decimals it has (max 3) — e.g. 17 chỉ, 2.5 chỉ
 pub fn fmt_gold(amount: rust_decimal::Decimal) -> String {
-    use rust_decimal::prelude::ToPrimitive;
-    let n = amount.to_f64().unwrap_or(0.0);
-    format!("{n:.3} chỉ")
+    format!("{} chỉ", amount.round_dp(3).normalize())
 }
 
 pub fn fmt_currency(amount: rust_decimal::Decimal, currency: &crate::models::Currency) -> String {
@@ -182,6 +180,17 @@ pub fn date_str_to_ts(s: &str) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::sanitize_amount;
+
+    #[test]
+    fn gold_shows_only_needed_decimals() {
+        use rust_decimal::Decimal;
+        use std::str::FromStr;
+        assert_eq!(super::fmt_gold(Decimal::from(17)), "17 chỉ");
+        assert_eq!(super::fmt_gold(Decimal::from_str("17.000").unwrap()), "17 chỉ");
+        assert_eq!(super::fmt_gold(Decimal::from_str("2.50").unwrap()), "2.5 chỉ");
+        assert_eq!(super::fmt_gold(Decimal::from_str("0.1234").unwrap()), "0.123 chỉ");
+        assert_eq!(super::fmt_gold(Decimal::ZERO), "0 chỉ");
+    }
 
     #[test]
     fn sanitize_amount_drops_leading_zeros() {

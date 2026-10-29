@@ -244,9 +244,15 @@ impl TransactionService {
             return Err(AppError::Validation("Amount must be greater than zero".into()));
         }
 
-        // Wallet must exist
-        WalletRepo::find_by_id(conn, &input.wallet_id)?
+        // Wallet must exist, and the amount must be in its currency: a wallet balance is
+        // one number, so 17 GOLD added to a VND wallet would silently become 17 ₫
+        let wallet = WalletRepo::find_by_id(conn, &input.wallet_id)?
             .ok_or_else(|| AppError::NotFound(format!("wallet '{}'", input.wallet_id)))?;
+        if input.currency != wallet.currency {
+            return Err(AppError::Validation(format!(
+                "Wallet {} holds {}, not {}", wallet.name, wallet.currency, input.currency
+            )));
+        }
 
         match input.txn_type {
             TransactionType::Income => {
@@ -267,6 +273,14 @@ impl TransactionService {
                 }
                 if input.to_amount.is_none() {
                     return Err(AppError::Validation("transfer requires to_amount".into()));
+                }
+                let to_wallet = WalletRepo::find_by_id(conn, to_id)?
+                    .ok_or_else(|| AppError::NotFound(format!("wallet '{to_id}'")))?;
+                if input.to_currency.as_ref().is_some_and(|c| *c != to_wallet.currency) {
+                    return Err(AppError::Validation(format!(
+                        "Wallet {} holds {}, not {}",
+                        to_wallet.name, to_wallet.currency, input.to_currency.as_ref().unwrap()
+                    )));
                 }
             }
             TransactionType::OpeningBalance => {}
@@ -350,5 +364,12 @@ mod tests {
         // Other types still need more than 0
         let zero_expense = NewTransaction::expense(&wallet.id, Decimal::ZERO, Currency::VND, &category, 3_000);
         assert!(TransactionService::execute(&conn, &zero_expense).is_err());
+
+        // 17 GOLD into a VND wallet is refused instead of becoming 17 ₫
+        let before = balance();
+        let gold = NewTransaction::income(&wallet.id, Decimal::from(17), Currency::GOLD, crate::models::IncomeType::Other, 4_000);
+        let err = TransactionService::execute(&conn, &gold).unwrap_err().to_string();
+        assert!(err.contains("holds VND, not GOLD"), "{err}");
+        assert_eq!(balance(), before);
     }
 }

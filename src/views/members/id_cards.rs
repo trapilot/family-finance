@@ -45,15 +45,22 @@ const PICK_PHOTO_JS: &str = r#"
             ctx.fillRect(0, 0, c.width, c.height);
             ctx.drawImage(img, 0, 0, c.width, c.height);
             URL.revokeObjectURL(url);
-            dioxus.send(JSON.stringify({ side, data: c.toDataURL('image/jpeg', 0.85).split(',')[1] }));
+            dioxus.send({ side, data: c.toDataURL('image/jpeg', 0.85).split(',')[1] });
         };
-        img.onerror = () => { URL.revokeObjectURL(url); dioxus.send(JSON.stringify({ side, data: '' })); };
+        img.onerror = () => { URL.revokeObjectURL(url); dioxus.send({ side, data: '' }); };
         img.src = url;
     };
     document.addEventListener('click', click, true);
     document.addEventListener('change', change, true);
     window.__ffIdPhoto = { click, change };
 "#;
+
+/// What `PICK_PHOTO_JS` sends for each chosen photo
+#[derive(serde::Deserialize)]
+struct PickedPhoto {
+    side: String,
+    data: String,
+}
 
 /// Front + back photo slots. Edits stay in the signals until the form is saved.
 #[component]
@@ -64,9 +71,9 @@ pub fn IdPhotoFields(front: Signal<Option<Vec<u8>>>, back: Signal<Option<Vec<u8>
     use_hook(move || {
         spawn(async move {
             let mut eval = document::eval(PICK_PHOTO_JS);
-            while let Ok(msg) = eval.recv::<serde_json::Value>().await {
-                let mut target = if msg["side"] == "back" { back } else { front };
-                match B64.decode(msg["data"].as_str().unwrap_or_default()) {
+            while let Ok(msg) = eval.recv::<PickedPhoto>().await {
+                let mut target = if msg.side == "back" { back } else { front };
+                match B64.decode(&msg.data) {
                     Ok(jpeg) if !jpeg.is_empty() => { target.set(Some(jpeg)); error.set(false); }
                     _                            => error.set(true),
                 }

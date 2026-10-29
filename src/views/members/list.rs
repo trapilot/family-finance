@@ -36,23 +36,23 @@ pub fn MemberList(view: Signal<MemberView>) -> Element {
             div {
                 style: "display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap: wrap;",
                 h1 { style: "margin:0; font-size:20px; font-weight:700; color:#1f2937;", {t.t("Families & Members")} }
-                div { style: "display:flex; gap:8px; flex-wrap:wrap;",
+                div { style: "display:flex; gap:8px;",
                     button {
-                        style: "background:#fff; color:#4f46e5; border:1px solid #c7d2fe; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;",
-                        onclick: move |_| { view.set(MemberView::IdCardsPdf); },
-                        {t.t("🪪 ID Cards PDF")}
-                    }
-                    button {
-                        style: "background:#6366f1; color:#fff; border:none; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;",
+                        style: "background:#6366f1; color:#fff; border:none; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap;",
                         onclick: move |_| { view.set(MemberView::AddFamily); },
                         {t.t("+ Add Family")}
                     }
                     button {
-                        style: "background:#10b981; color:#fff; border:none; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;",
+                        style: "background:#10b981; color:#fff; border:none; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap;",
                         onclick: move |_| { view.set(MemberView::Add); },
                         {t.t("+ Add Member")}
                     }
                 }
+            }
+            button {
+                style: "align-self:flex-start; background:#fff; color:#4f46e5; border:1px solid #c7d2fe; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;",
+                onclick: move |_| { view.set(MemberView::IdCardsPdf); },
+                {t.t("🪪 ID Cards PDF")}
             }
 
             if families_with_members.read().is_empty() && unassigned_members.read().is_empty() {

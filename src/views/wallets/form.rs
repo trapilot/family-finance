@@ -16,7 +16,7 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
     let state = use_context::<AppState>();
 
     let mut name        = use_signal(|| editing.as_ref().map(|w| w.name.clone()).unwrap_or_default());
-    let mut wallet_type = use_signal(|| editing.as_ref().map(|w| w.wallet_type.clone()).unwrap_or(WalletType::Cash));
+    let mut wallet_type = use_signal(|| editing.as_ref().map(|w| w.wallet_type.clone()).unwrap_or(WalletType::Bank));
     let mut currency    = use_signal(|| editing.as_ref().map(|w| w.currency.clone()).unwrap_or(Currency::VND));
     let mut balance_str = use_signal(|| editing.as_ref().map(|w| format!("{}", w.balance)).unwrap_or_else(|| "0".into()));
     let mut broker      = use_signal(|| editing.as_ref().and_then(|w| w.broker.clone()).unwrap_or_default());
@@ -108,6 +108,28 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
                 h1 { style: "margin:0; font-size:18px; font-weight:700; color:#1f2937;", "{title}" }
             }
 
+            // ── Type (first option = default for a new wallet) ──
+            FieldLabel { label: t.t("Type") }
+            select {
+                style: "border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; font-size:16px; outline:none; background:#fff; width:100%; box-sizing:border-box;",
+                oninput: move |e| {
+                    if let Ok(wt) = e.value().parse::<WalletType>() { wallet_type.set(wt); }
+                },
+                for (wt, label, icon_str) in [
+                    (WalletType::Bank,       t.t("Bank"),       "🏦"),
+                    (WalletType::Cash,       t.t("Cash"),       "💵"),
+                    (WalletType::EWallet,    t.t("E-Wallet"),   "📱"),
+                    (WalletType::Investment, t.t("Investment"), "📈"),
+                    (WalletType::Loan,       t.t("Loan"),       "🤝"),
+                ] {
+                    option {
+                        value: "{wt}",
+                        selected: *wallet_type.read() == wt,
+                        "{icon_str} {label}"
+                    }
+                }
+            }
+
             // ── Name ──
             FieldLabel { label: t.t("Name") }
             input {
@@ -116,35 +138,6 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
                 placeholder: t.t("e.g. HSBC"),
                 value: "{name.read()}",
                 oninput: move |e| { name.set(e.value()); },
-            }
-
-            // ── Type ──
-            FieldLabel { label: t.t("Type") }
-            div {
-                style: "display:grid; grid-template-columns:1fr 1fr; gap:8px;",
-                for (wt, label, icon_str) in [
-                    (WalletType::Cash,       t.t("Cash"),       "💵"),
-                    (WalletType::Bank,       t.t("Bank"),       "🏦"),
-                    (WalletType::Loan,       t.t("Loan"),       "🤝"),
-                    (WalletType::EWallet,    t.t("E-Wallet"),   "📱"),
-                    (WalletType::Investment, t.t("Investment"), "📈"),
-                ] {
-                    {
-                        let wt_clone = wt.clone();
-                        let is_active = *wallet_type.read() == wt;
-                        rsx! {
-                            button {
-                                style: if is_active {
-                                    "padding:10px; border:2px solid #6366f1; border-radius:10px; background:#eef2ff; color:#6366f1; font-size:13px; font-weight:600; cursor:pointer; text-align:left;"
-                                } else {
-                                    "padding:10px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; color:#6b7280; font-size:13px; cursor:pointer; text-align:left;"
-                                },
-                                onclick: move |_| { wallet_type.set(wt_clone.clone()); },
-                                "{icon_str} {label}"
-                            }
-                        }
-                    }
-                }
             }
 
             // ── Currency ──

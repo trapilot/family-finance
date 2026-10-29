@@ -140,17 +140,18 @@ impl CategoryRepo {
         Ok(())
     }
 
+    /// Add every default category not there yet (matched by name), so defaults added in a
+    /// later version reach existing databases too. System categories can't be deleted.
     pub fn seed_defaults(conn: &Connection) -> Result<()> {
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM categories WHERE is_system = 1",
-            [],
-            |row| row.get(0),
-        )?;
-        if count > 0 {
-            return Ok(()); // Already seeded
-        }
         for cat in crate::models::category::default_categories() {
-            Self::create_system(conn, &cat)?;
+            let exists: bool = conn.query_row(
+                "SELECT COUNT(*) > 0 FROM categories WHERE is_system = 1 AND name = ?1",
+                [&cat.name],
+                |row| row.get(0),
+            )?;
+            if !exists {
+                Self::create_system(conn, &cat)?;
+            }
         }
         Ok(())
     }
@@ -162,4 +163,27 @@ fn now_ts() -> i64 {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs() as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn seeding_adds_missing_defaults_only_once() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::run(&conn).unwrap();
+        let total = crate::models::category::default_categories().len();
+
+        CategoryRepo::seed_defaults(&conn).unwrap();
+        assert_eq!(CategoryRepo::list(&conn).unwrap().len(), total);
+
+        // An older database missing a newer default gets just that one
+        conn.execute("DELETE FROM categories WHERE name = 'Family Support'", []).unwrap();
+        CategoryRepo::seed_defaults(&conn).unwrap();
+        CategoryRepo::seed_defaults(&conn).unwrap();
+        let names: Vec<String> = CategoryRepo::list(&conn).unwrap().into_iter().map(|c| c.name).collect();
+        assert_eq!(names.len(), total);
+        assert_eq!(names.iter().filter(|n| *n == "Family Support").count(), 1);
+    }
 }

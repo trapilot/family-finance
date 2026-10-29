@@ -63,6 +63,7 @@ pub fn default_categories() -> Vec<NewCategory> {
         NewCategory { name: "Cosmetics".into(),          icon: Some("💄".into()), color: Some("#FFB6C1".into()), budget_amount: None, parent_id: None, sort_order: 8  },
         NewCategory { name: "Household Goods".into(),    icon: Some("🧺".into()), color: Some("#C3B091".into()), budget_amount: None, parent_id: None, sort_order: 9  },
         NewCategory { name: "Travel".into(),             icon: Some("✈️".into()), color: Some("#87CEEB".into()), budget_amount: None, parent_id: None, sort_order: 10 },
-        NewCategory { name: "Other".into(),              icon: Some("📦".into()), color: Some("#D3D3D3".into()), budget_amount: None, parent_id: None, sort_order: 11 },
+        NewCategory { name: "Family Support".into(),     icon: Some("🤲".into()), color: Some("#F4A261".into()), budget_amount: None, parent_id: None, sort_order: 11 },
+        NewCategory { name: "Other".into(),              icon: Some("📦".into()), color: Some("#D3D3D3".into()), budget_amount: None, parent_id: None, sort_order: 12 },
     ]
 }

@@ -90,7 +90,14 @@ pub fn ExpenseReport() -> Element {
             }
 
             for item in items.read().iter() {
-                CategoryBar { item: item.clone(), total: *total.read() }
+                CategoryBar {
+                    item: item.clone(),
+                    total: *total.read(),
+                    onclick: {
+                        let category_id = item.category_id.clone();
+                        move |_| drill.set(Some(TypeDrill::category(category_id.clone(), year(), month())))
+                    },
+                }
             }
         }
     }
@@ -99,7 +106,7 @@ pub fn ExpenseReport() -> Element {
 // ─── CategoryBar ─────────────────────────────────────────────────────────────
 
 #[component]
-fn CategoryBar(item: ExpenseByCategoryItem, total: Decimal) -> Element {
+fn CategoryBar(item: ExpenseByCategoryItem, total: Decimal, onclick: EventHandler<MouseEvent>) -> Element {
     let t = use_i18n();
     use rust_decimal::prelude::ToPrimitive;
 
@@ -110,7 +117,8 @@ fn CategoryBar(item: ExpenseByCategoryItem, total: Decimal) -> Element {
 
     rsx! {
         div {
-            style: "background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
+            style: "background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); cursor:pointer;",
+            onclick: move |e| onclick.call(e),
 
             div {
                 style: "display:flex; align-items:center; gap:10px; margin-bottom:8px;",
@@ -121,7 +129,7 @@ fn CategoryBar(item: ExpenseByCategoryItem, total: Decimal) -> Element {
                 div { style: "flex:1;",
                     div { style: "display:flex; justify-content:space-between; align-items:baseline;",
                         span { style: "font-size:14px; font-weight:600; color:#374151;", {t.tr(&item.category_name)} }
-                        span { style: "font-size:14px; font-weight:700; color:#1f2937;", "{fmt_vnd(item.amount)}" }
+                        span { style: "font-size:14px; font-weight:700; color:#1f2937;", "{fmt_vnd(item.amount)} ›" }
                     }
                     div { style: "display:flex; justify-content:space-between; margin-top:1px;",
                         span { style: "font-size:11px; color:#9ca3af;", {t.t("{pct}% of total").replace("{pct}", &format!("{pct:.1}"))} }

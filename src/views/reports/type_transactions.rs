@@ -10,18 +10,24 @@ use crate::repository::{CategoryRepo, TransactionRepo, WalletRepo};
 use crate::views::{fmt_currency, fmt_vnd, month_label, ts_to_date_str};
 use super::expense::EmptyState;
 
-/// Transactions behind a report number: one type over a range of whole months
+/// Transactions behind a report number: one type (optionally one category) over a range of whole months
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypeDrill {
     pub txn_type: TransactionType,
     /// (year, month), inclusive
     pub from: (i32, u32),
     pub to:   (i32, u32),
+    /// Only this category (Expense report rows)
+    pub category_id: Option<String>,
 }
 
 impl TypeDrill {
     pub fn month(txn_type: TransactionType, year: i32, month: u32) -> Self {
-        Self { txn_type, from: (year, month), to: (year, month) }
+        Self { txn_type, from: (year, month), to: (year, month), category_id: None }
+    }
+
+    pub fn category(category_id: String, year: i32, month: u32) -> Self {
+        Self { category_id: Some(category_id), ..Self::month(TransactionType::Expense, year, month) }
     }
 }
 
@@ -38,7 +44,8 @@ pub fn TypeTransactions(drill: TypeDrill, on_back: EventHandler<()>) -> Element 
     // Same bounds as the report sums (`sum_by_type_in_month`), so the total matches
     let (txns, wallets, categories) = state.with_conn(|conn| {
         let filter = TxnFilter {
-            txn_type:  Some(drill.txn_type.clone()),
+            txn_type:    Some(drill.txn_type.clone()),
+            category_id: drill.category_id.clone(),
             date_from: Some(month_bounds(drill.from.0, drill.from.1).0),
             date_to:   Some(month_bounds(drill.to.0, drill.to.1).1),
             ..Default::default()
@@ -51,7 +58,10 @@ pub fn TypeTransactions(drill: TypeDrill, on_back: EventHandler<()>) -> Element 
     });
     let total: Decimal = txns.iter().map(|tx| tx.amount).sum();
 
-    let type_label = t.code(&drill.txn_type.to_string());
+    // A category drill is titled by the category ("🍜 Food & Drinks"), otherwise by the type
+    let type_label = drill.category_id.as_deref()
+        .and_then(|c| categories.get(c).cloned())
+        .unwrap_or_else(|| t.code(&drill.txn_type.to_string()));
     let period = if drill.from == drill.to {
         month_label(drill.from.0, drill.from.1)
     } else {

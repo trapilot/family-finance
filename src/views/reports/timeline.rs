@@ -44,7 +44,7 @@ pub fn TimelineReport() -> Element {
     let period = data.first().zip(data.last()).map(|(a, b)| ((a.year, a.month), (b.year, b.month)));
     let mut open_period = move |txn_type: TransactionType| {
         if let Some((from, to)) = period {
-            drill.set(Some(TypeDrill { txn_type, from, to }));
+            drill.set(Some(TypeDrill { txn_type, from, to, category_id: None }));
         }
     };
     let max_val = data.iter()

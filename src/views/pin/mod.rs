@@ -43,7 +43,7 @@ pub fn PinSetup(on_set: EventHandler) -> Element {
 
     rsx! {
         div {
-            style: "display:flex; flex-direction:column; gap:20px; padding:calc(40px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom)); align-items:center; position:fixed; top:0; right:0; bottom:0; left:0; overflow-y:auto; justify-content:center; font-family:system-ui,sans-serif;",
+            style: "display:flex; flex-direction:column; gap:20px; padding:calc(40px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom)); align-items:center; position:fixed; top:0; right:0; bottom:0; left:0; overflow-y:auto; justify-content:center; font-family:inherit;",
             div { style: "font-size:40px;", "🔐" }
             h1 { style: "font-size:24px; font-weight:700; color:#1f2937;", {t.t("Set your PIN")} },
             p { style: "font-size:14px; color:#6b7280; text-align:center;", {t.t("You will need this PIN to unlock the app and access sensitive features")} },
@@ -135,7 +135,7 @@ pub fn PinUnlock(on_unlock: EventHandler) -> Element {
 
     rsx! {
         div {
-            style: "display:flex; flex-direction:column; gap:20px; padding:calc(40px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom)); align-items:center; position:fixed; top:0; right:0; bottom:0; left:0; overflow-y:auto; justify-content:center; font-family:system-ui,sans-serif;",
+            style: "display:flex; flex-direction:column; gap:20px; padding:calc(40px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom)); align-items:center; position:fixed; top:0; right:0; bottom:0; left:0; overflow-y:auto; justify-content:center; font-family:inherit;",
             div { style: "font-size:40px;", "🔒" }
             h1 { style: "font-size:24px; font-weight:700; color:#1f2937;", {t.t("Enter your PIN")} },
             

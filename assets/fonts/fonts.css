@@ -1,0 +1,9 @@
+/* Be Vietnam Pro, bundled with the app so it works offline (SIL OFL, see OFL.txt) */
+@font-face { font-family: "Be Vietnam Pro"; font-weight: 400; font-style: normal; font-display: swap; src: url("BeVietnamPro-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Be Vietnam Pro"; font-weight: 500; font-style: normal; font-display: swap; src: url("BeVietnamPro-Medium.ttf") format("truetype"); }
+@font-face { font-family: "Be Vietnam Pro"; font-weight: 600; font-style: normal; font-display: swap; src: url("BeVietnamPro-SemiBold.ttf") format("truetype"); }
+@font-face { font-family: "Be Vietnam Pro"; font-weight: 700; font-style: normal; font-display: swap; src: url("BeVietnamPro-Bold.ttf") format("truetype"); }
+@font-face { font-family: "Be Vietnam Pro"; font-weight: 800; font-style: normal; font-display: swap; src: url("BeVietnamPro-ExtraBold.ttf") format("truetype"); }
+
+/* Buttons and inputs don't inherit the page font by default */
+button, input, select, textarea { font-family: inherit; }

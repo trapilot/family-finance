@@ -13,6 +13,9 @@ use crate::views::{
     pin::{PinSetup, PinUnlock},
 };
 
+/// Bundled fonts + their @font-face rules; a folder asset keeps file names, so fonts.css can use relative URLs
+const FONTS: Asset = asset!("/assets/fonts", AssetOptions::folder());
+
 // ─── AppState ─────────────────────────────────────────────────────────────────
 
 #[derive(Clone)]
@@ -79,7 +82,7 @@ pub fn App() -> Element {
 
     let mut is_unlocked = use_signal(|| false);
 
-    match is_pin_set.cloned() {
+    let screen = match is_pin_set.cloned() {
         None => rsx! { div { style: "padding: 40px;", {t.t("Loading...")} } },
         Some(false) => {
             rsx! {
@@ -102,6 +105,11 @@ pub fn App() -> Element {
                 }
             }
         }
+    };
+
+    rsx! {
+        document::Stylesheet { href: "{FONTS}/fonts.css" }
+        {screen}
     }
 }
 
@@ -120,7 +128,7 @@ fn MainApp() -> Element {
     rsx! {
         div {
             // Pinned to the screen edges: content scrolls, tab bar stays at the bottom
-            style: "position:fixed; top:0; right:0; bottom:0; left:0; display:flex; flex-direction:column; padding-top:env(safe-area-inset-top); padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); font-family:system-ui,sans-serif; background:#f5f5f5;",
+            style: "position:fixed; top:0; right:0; bottom:0; left:0; display:flex; flex-direction:column; padding-top:env(safe-area-inset-top); padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); font-family:inherit; background:#f5f5f5;",
             div {
                 style: "position:relative; flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;",
                 match *active_tab.read() {

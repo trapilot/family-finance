@@ -394,26 +394,26 @@ fn DangerZone() -> Element {
     let state   = use_context::<AppState>();
     let mut show_pin_modal = use_signal(|| false);
     let mut confirmed = use_signal(|| false);
+    let mut status = use_signal(String::new);
 
     let handle_delete = {
         let state = state.clone();
         move || {
-            state.with_conn(|conn| {
-                let _ = conn.execute_batch("
-                    DELETE FROM transactions;
-                    DELETE FROM holdings;
-                    DELETE FROM members;
-                    DELETE FROM families;
-                    DELETE FROM wallets;
-                    DELETE FROM categories WHERE is_system = 0;
-                ");
+            let result = state.with_conn(|conn| {
+                delete_all_data(conn)?;
+                // Cancel the notifications of the reminders just deleted
+                crate::services::ReminderService::resync(conn)
             });
+            match result {
+                Ok(())  => status.set(t.t("✅ All data deleted").to_string()),
+                Err(e)  => status.set(format!("❌ {}: {e}", t.t("Delete failed"))),
+            }
         }
     };
 
     let handle_verified = {
         let mut show_pin_modal = show_pin_modal.clone();
-        let handle_delete = handle_delete.clone();
+        let mut handle_delete = handle_delete.clone();
         move |_| {
             handle_delete();
             show_pin_modal.set(false);
@@ -435,6 +435,10 @@ fn DangerZone() -> Element {
                 {t.t("Delete All Data")}
             }
 
+            if !status.read().is_empty() {
+                p { style: "margin:10px 0 0; font-size:13px; color:#374151;", "{status}" }
+            }
+
             PinVerifyModal {
                 is_visible: show_pin_modal,
                 on_cancel: move |_| {
@@ -448,6 +452,27 @@ fn DangerZone() -> Element {
 }
 
 // ─── Backup logic ─────────────────────────────────────────────────────────────
+
+/// Wipe all user data in one transaction. Rows that reference others go first
+/// (transactions/reminders → wallets, ID photos → members), otherwise SQLite's
+/// foreign keys reject deleting the wallets and members.
+fn delete_all_data(conn: &rusqlite::Connection) -> crate::error::Result<()> {
+    conn.execute_batch("
+        BEGIN IMMEDIATE;
+        DELETE FROM transactions;
+        DELETE FROM reminders;
+        DELETE FROM holdings;
+        DELETE FROM member_id_images;
+        DELETE FROM members;
+        DELETE FROM families;
+        DELETE FROM wallets;
+        DELETE FROM categories WHERE is_system = 0;
+        COMMIT;
+    ").map_err(|e| {
+        let _ = conn.execute_batch("ROLLBACK");
+        e.into()
+    })
+}
 
 fn export_backup(conn: &rusqlite::Connection) -> crate::error::Result<String> {
     let wallets      = WalletRepo::list_active(conn)?;
@@ -716,4 +741,43 @@ fn share_backup(json: &str, path: &PathBuf) -> crate::error::Result<()> {
     
     let _ = dioxus::document::eval(&js);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{Currency, NewReminder, NewWallet, NewTransaction, RepeatUnit, TransactionType, WalletType};
+    use crate::repository::{ReminderRepo, WalletRepo};
+    use crate::services::TransactionService;
+    use rust_decimal::Decimal;
+
+    fn count(conn: &rusqlite::Connection, table: &str) -> i64 {
+        conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn delete_all_clears_wallets_even_with_reminders() {
+        for foreign_keys in ["ON", "OFF"] {
+            let conn = rusqlite::Connection::open_in_memory().unwrap();
+            crate::db::migrations::run(&conn).unwrap();
+            conn.execute_batch(&format!("PRAGMA foreign_keys = {foreign_keys}")).unwrap();
+
+            let wallet = WalletRepo::create(&conn, &NewWallet {
+                name: "Cash".into(), wallet_type: WalletType::Cash, currency: Currency::VND,
+                balance: Decimal::ZERO, broker: None, icon: None, color: None, sort_order: 0,
+            }).unwrap();
+            TransactionService::execute(&conn,
+                &NewTransaction::opening_balance(&wallet.id, Decimal::from(5_000), Currency::VND, 1)).unwrap();
+            ReminderRepo::create(&conn, &NewReminder {
+                txn_type: TransactionType::Income, wallet_id: wallet.id.clone(), to_wallet_id: None,
+                amount: Decimal::from(1_000), currency: Currency::VND, note: None,
+                start_date: 1, repeat_unit: RepeatUnit::Month, repeat_every: 1,
+            }).unwrap();
+
+            delete_all_data(&conn).unwrap();
+            for table in ["wallets", "transactions", "reminders", "holdings", "members", "families", "member_id_images"] {
+                assert_eq!(count(&conn, table), 0, "{table} not empty (foreign_keys {foreign_keys})");
+            }
+        }
+    }
 }

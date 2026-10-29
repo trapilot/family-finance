@@ -392,6 +392,8 @@ fn vi(en: &str) -> Option<&'static str> {
         "Notification frequency"              => "Tần suất thông báo",
         "On a day with due income, transfers or unpaid bills, notify from the first notification time, then every N hours until midnight." => "Vào ngày có khoản thu, chuyển khoản đến hạn hoặc hoá đơn chưa trả, thông báo từ giờ thông báo đầu tiên, rồi cứ N giờ một lần đến nửa đêm.",
         "Monthly bills"                        => "Hoá đơn hằng tháng",
+        "{n} transactions"                     => "{n} giao dịch",
+        "No transactions in this period"       => "Không có giao dịch trong khoảng này",
         "From the due day, notify every day until you mark the bill paid for that month. Next month it starts again." => "Từ ngày đến hạn, nhắc mỗi ngày cho đến khi bạn đánh dấu đã trả trong tháng đó. Sang tháng sau sẽ nhắc lại.",
         "Bill name (e.g. Electricity)"         => "Tên hoá đơn (vd: Tiền điện)",
         "Amount (optional)"                    => "Số tiền (không bắt buộc)",

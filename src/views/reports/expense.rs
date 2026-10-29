@@ -4,7 +4,9 @@ use rust_decimal::Decimal;
 
 use crate::app::AppState;
 use crate::services::{report_service::ExpenseByCategoryItem, ReportService};
+use crate::models::TransactionType;
 use crate::views::{current_month, fmt_vnd, month_label};
+use super::type_transactions::{use_open_drill, TypeDrill};
 
 #[component]
 pub fn ExpenseReport() -> Element {
@@ -14,6 +16,7 @@ pub fn ExpenseReport() -> Element {
 
     let mut year  = use_signal(|| y0);
     let mut month = use_signal(|| m0);
+    let mut drill = use_open_drill();
     let items = use_signal(|| vec![]);
     let total = use_signal(|| Decimal::ZERO);
 
@@ -72,9 +75,13 @@ pub fn ExpenseReport() -> Element {
 
             // ── Total ──
             div {
-                style: "background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.06);",
-                div { style: "font-size:11px; color:#9ca3af; text-transform:uppercase; margin-bottom:4px;", {t.t("Total Expense")} }
-                div { style: "font-size:24px; font-weight:800; color:#ef4444;", "{fmt_vnd(*total.read())}" }
+                style: "background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); display:flex; align-items:center; cursor:pointer;",
+                onclick: move |_| drill.set(Some(TypeDrill::month(TransactionType::Expense, year(), month()))),
+                div { style: "flex:1;",
+                    div { style: "font-size:11px; color:#9ca3af; text-transform:uppercase; margin-bottom:4px;", {t.t("Total Expense")} }
+                    div { style: "font-size:24px; font-weight:800; color:#ef4444;", "{fmt_vnd(*total.read())}" }
+                }
+                span { style: "color:#d1d5db; font-size:20px;", "›" }
             }
 
             // ── Category breakdown ──

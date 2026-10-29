@@ -1,12 +1,14 @@
 pub mod expense;
 pub mod investment;
 pub mod timeline;
+pub mod type_transactions;
 
 use dioxus::prelude::*;
 use crate::i18n::use_i18n;
 use expense::ExpenseReport;
 use timeline::TimelineReport;
 use investment::InvestmentReport;
+use type_transactions::{TypeDrill, TypeTransactions};
 
 #[derive(Clone, PartialEq)]
 enum ReportTab { Expense, Timeline, Investment }
@@ -15,10 +17,17 @@ enum ReportTab { Expense, Timeline, Investment }
 pub fn Reports() -> Element {
     let t = use_i18n();
     let mut tab = use_signal(|| ReportTab::Expense);
+    // Tapping Income / Expense in a report opens its transactions; reports read this via context
+    let mut drill = use_signal(|| None::<TypeDrill>);
+    use_context_provider(|| drill);
 
     rsx! {
+        if let Some(d) = drill() {
+            TypeTransactions { drill: d, on_back: move |_| drill.set(None) }
+        }
+        // Kept mounted while the list is open, so Back returns to the same month / period
         div {
-            style: "display:flex; flex-direction:column; height:100%;",
+            style: if drill.read().is_some() { "display:none;" } else { "display:flex; flex-direction:column; height:100%;" },
 
             // ── Header ──
             div {

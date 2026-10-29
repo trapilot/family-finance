@@ -5,8 +5,10 @@ use rust_decimal::prelude::ToPrimitive;
 
 use crate::app::AppState;
 use crate::services::{report_service::MonthlySummary, ReportService};
+use crate::models::TransactionType;
 use crate::views::{fmt_vnd, month_label};
 use super::expense::EmptyState;
+use super::type_transactions::{use_open_drill, TypeDrill};
 
 #[component]
 pub fn TimelineReport() -> Element {
@@ -15,6 +17,7 @@ pub fn TimelineReport() -> Element {
     let mut months   = use_signal(|| 6u32);
     let summaries = use_signal(|| vec![]);
     let mut selected  = use_signal(|| None::<usize>);
+    let mut drill     = use_open_drill();
 
     let load = {
         let state = state.clone();
@@ -37,6 +40,13 @@ pub fn TimelineReport() -> Element {
     });
 
     let data = summaries.read();
+    // Whole shown period, oldest → newest month (for the column headers)
+    let period = data.first().zip(data.last()).map(|(a, b)| ((a.year, a.month), (b.year, b.month)));
+    let mut open_period = move |txn_type: TransactionType| {
+        if let Some((from, to)) = period {
+            drill.set(Some(TypeDrill { txn_type, from, to }));
+        }
+    };
     let max_val = data.iter()
         .flat_map(|s| [s.income, s.expense])
         .max()
@@ -179,16 +189,38 @@ pub fn TimelineReport() -> Element {
                     div {
                         style: "display:grid; grid-template-columns:80px 1fr 1fr 1fr; gap:4px; padding:6px 0; border-bottom:1px solid #f3f4f6;",
                         span { style: "font-size:11px; font-weight:700; color:#9ca3af;", {t.t("Month")} }
-                        span { style: "font-size:11px; font-weight:700; color:#10b981; text-align:right;", {t.t("Income")} }
-                        span { style: "font-size:11px; font-weight:700; color:#ef4444; text-align:right;", {t.t("Expense")} }
+                        span {
+                            style: "font-size:11px; font-weight:700; color:#10b981; text-align:right; cursor:pointer; text-decoration:underline dotted;",
+                            onclick: move |_| open_period(TransactionType::Income),
+                            {t.t("Income")} " ›"
+                        }
+                        span {
+                            style: "font-size:11px; font-weight:700; color:#ef4444; text-align:right; cursor:pointer; text-decoration:underline dotted;",
+                            onclick: move |_| open_period(TransactionType::Expense),
+                            {t.t("Expense")} " ›"
+                        }
                         span { style: "font-size:11px; font-weight:700; color:#6366f1; text-align:right;", {t.t("Savings")} }
                     }
                     for s in data.iter().rev() {
                         div {
                             style: "display:grid; grid-template-columns:80px 1fr 1fr 1fr; gap:4px; padding:8px 0; border-bottom:1px solid #f9fafb;",
                             span { style: "font-size:12px; color:#374151;", "{month_label(s.year, s.month)}" }
-                            span { style: "font-size:12px; font-weight:600; color:#10b981; text-align:right;", "{fmt_vnd(s.income)}" }
-                            span { style: "font-size:12px; font-weight:600; color:#ef4444; text-align:right;", "{fmt_vnd(s.expense)}" }
+                            span {
+                                style: "font-size:12px; font-weight:600; color:#10b981; text-align:right; cursor:pointer; text-decoration:underline dotted;",
+                                onclick: {
+                                    let (y, m) = (s.year, s.month);
+                                    move |_| drill.set(Some(TypeDrill::month(TransactionType::Income, y, m)))
+                                },
+                                "{fmt_vnd(s.income)}"
+                            }
+                            span {
+                                style: "font-size:12px; font-weight:600; color:#ef4444; text-align:right; cursor:pointer; text-decoration:underline dotted;",
+                                onclick: {
+                                    let (y, m) = (s.year, s.month);
+                                    move |_| drill.set(Some(TypeDrill::month(TransactionType::Expense, y, m)))
+                                },
+                                "{fmt_vnd(s.expense)}"
+                            }
                             span {
                                 style: if s.savings >= Decimal::ZERO {
                                     "font-size:12px; font-weight:600; color:#6366f1; text-align:right;"
@@ -208,6 +240,8 @@ pub fn TimelineReport() -> Element {
 #[component]
 fn MonthDetailCard(summary: MonthlySummary) -> Element {
     let t = use_i18n();
+    let mut drill = use_open_drill();
+    let (y, m) = (summary.year, summary.month);
     let savings_rate_color = if summary.savings_rate >= Decimal::ZERO {
         "#f59e0b"
     } else {
@@ -229,13 +263,15 @@ fn MonthDetailCard(summary: MonthlySummary) -> Element {
                 StatBox {
                     label: t.t("Income"),
                     value: fmt_vnd(summary.income),
-                    color: "#10b981"
+                    color: "#10b981",
+                    onclick: move |_| drill.set(Some(TypeDrill::month(TransactionType::Income, y, m))),
                 }
 
                 StatBox {
                     label: t.t("Expense"),
                     value: fmt_vnd(summary.expense),
-                    color: "#ef4444"
+                    color: "#ef4444",
+                    onclick: move |_| drill.set(Some(TypeDrill::month(TransactionType::Expense, y, m))),
                 }
 
                 StatBox {
@@ -255,11 +291,16 @@ fn MonthDetailCard(summary: MonthlySummary) -> Element {
 }
 
 #[component]
-fn StatBox(label: &'static str, value: String, color: &'static str) -> Element {
+fn StatBox(label: &'static str, value: String, color: &'static str, onclick: Option<EventHandler<MouseEvent>>) -> Element {
+    let clickable = onclick.is_some();
     rsx! {
         div {
-            style: "background:#f9fafb; border-radius:8px; padding:10px;",
-            div { style: "font-size:11px; color:#9ca3af; margin-bottom:2px;", "{label}" }
+            style: if clickable { "background:#f9fafb; border-radius:8px; padding:10px; cursor:pointer;" } else { "background:#f9fafb; border-radius:8px; padding:10px;" },
+            onclick: move |e| if let Some(h) = &onclick { h.call(e) },
+            div { style: "font-size:11px; color:#9ca3af; margin-bottom:2px;",
+                "{label}"
+                if clickable { " ›" }
+            }
             div { style: "font-size:14px; font-weight:700; color:{color};", "{value}" }
         }
     }

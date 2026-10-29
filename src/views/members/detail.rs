@@ -5,6 +5,7 @@ use crate::app::AppState;
 use crate::models::{member::MemberRole, Member};
 use crate::repository::MemberRepo;
 use crate::views::ts_to_date_str;
+use super::id_cards::IdPhotoPreview;
 use super::MemberView;
 
 #[component]
@@ -156,6 +157,8 @@ pub fn MemberDetail(view: Signal<MemberView>, member: Member) -> Element {
                             }
                         }
                     }
+
+                    IdPhotoPreview { member_id: member.id.clone() }
 
                     // Personal info
                     div {

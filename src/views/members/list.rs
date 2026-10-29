@@ -36,7 +36,12 @@ pub fn MemberList(view: Signal<MemberView>) -> Element {
             div {
                 style: "display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap: wrap;",
                 h1 { style: "margin:0; font-size:20px; font-weight:700; color:#1f2937;", {t.t("Families & Members")} }
-                div { style: "display:flex; gap:8px;",
+                div { style: "display:flex; gap:8px; flex-wrap:wrap;",
+                    button {
+                        style: "background:#fff; color:#4f46e5; border:1px solid #c7d2fe; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;",
+                        onclick: move |_| { view.set(MemberView::IdCardsPdf); },
+                        {t.t("🪪 ID Cards PDF")}
+                    }
                     button {
                         style: "background:#6366f1; color:#fff; border:none; border-radius:20px; padding:8px 16px; font-size:14px; font-weight:600; cursor:pointer;",
                         onclick: move |_| { view.set(MemberView::AddFamily); },

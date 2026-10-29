@@ -1,6 +1,7 @@
 pub mod category;
 pub mod family;
 pub mod holding;
+pub mod id_card;
 pub mod member;
 pub mod rate;
 pub mod reminder;
@@ -10,6 +11,7 @@ pub mod wallet;
 pub use category::{Category, NewCategory};
 pub use family::{Family, NewFamily};
 pub use holding::{AssetType, Holding };
+pub use id_card::{IdCardImage, IdSide};
 pub use member::{Member, NewMember};
 pub use rate::ExchangeRate;
 pub use reminder::{NewReminder, Reminder, RepeatUnit};

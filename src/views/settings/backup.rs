@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 use crate::app::AppState;
-use crate::models::{Category, Family, Holding, Member, Transaction, Wallet};
-use crate::repository::{CategoryRepo, FamilyRepo, HoldingRepo, SettingsRepo, TransactionRepo, WalletRepo};
+use crate::models::{Category, Family, Holding, IdCardImage, Member, Transaction, Wallet};
+use crate::repository::{CategoryRepo, FamilyRepo, HoldingRepo, IdCardRepo, SettingsRepo, TransactionRepo, WalletRepo};
 use crate::views::pin::PinVerifyModal;
 
 // ─── Backup format ────────────────────────────────────────────────────────────
@@ -20,6 +20,9 @@ pub struct BackupData {
     pub transactions: Vec<Transaction>,
     pub members:      Vec<Member>,
     pub families:     Vec<Family>,
+    /// CCCD photos; missing in backups made before photos existed
+    #[serde(default)]
+    pub id_card_images: Vec<IdCardImage>,
 }
 
 // ─── BackupSettings view ─────────────────────────────────────────────────────
@@ -453,6 +456,7 @@ fn export_backup(conn: &rusqlite::Connection) -> crate::error::Result<String> {
     let transactions = TransactionRepo::list_all(conn)?;
     let members      = load_members(conn);
     let families     = FamilyRepo::list(conn)?;
+    let id_card_images = IdCardRepo::list_all(conn)?;
 
     let data = BackupData {
         app_version:  SettingsRepo::get_app_version(conn)?.unwrap_or_default(),
@@ -463,6 +467,7 @@ fn export_backup(conn: &rusqlite::Connection) -> crate::error::Result<String> {
         transactions,
         members,
         families,
+        id_card_images,
     };
 
     Ok(serde_json::to_string_pretty(&data)?)
@@ -480,6 +485,7 @@ fn import_backup(conn: &rusqlite::Connection, json: &str) -> crate::error::Resul
             DELETE FROM holdings;
             DELETE FROM wallets;
             DELETE FROM categories WHERE is_system = 0;
+            DELETE FROM member_id_images;
             DELETE FROM members;
             DELETE FROM families;
         ")?;
@@ -576,6 +582,13 @@ fn import_backup(conn: &rusqlite::Connection, json: &str) -> crate::error::Resul
             )?;
         }
 
+        for img in &data.id_card_images {
+            conn.execute(
+                "INSERT OR REPLACE INTO member_id_images (member_id,side,jpeg,updated_at) VALUES (?1,?2,?3,?4)",
+                rusqlite::params![img.member_id, img.side.to_string(), img.jpeg, img.updated_at],
+            )?;
+        }
+
         Ok(())
     })();
 
@@ -583,9 +596,10 @@ fn import_backup(conn: &rusqlite::Connection, json: &str) -> crate::error::Resul
         Ok(_) => {
             conn.execute_batch("COMMIT")?;
             Ok(format!(
-                "{} families, {} wallets, {} holdings, {} categories, {} transactions, {} members",
+                "{} families, {} wallets, {} holdings, {} categories, {} transactions, {} members, {} ID photos",
                 data.families.len(), data.wallets.len(), data.holdings.len(),
                 data.categories.len(), data.transactions.len(), data.members.len(),
+                data.id_card_images.len(),
             ))
         }
         Err(e) => {

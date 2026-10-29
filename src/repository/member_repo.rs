@@ -112,11 +112,8 @@ impl MemberRepo {
     }
 
     pub fn delete(conn: &Connection, id: &str) -> Result<()> {
-        // Unlink transactions first (set member_id = NULL)
-        conn.execute(
-            "UPDATE transactions SET member_id = NULL WHERE member_id = ?1",
-            [id],
-        )?;
+        // (transactions have no member_id column yet, so there is nothing to unlink)
+        conn.execute("DELETE FROM member_id_images WHERE member_id = ?1", [id])?;
         let affected = conn.execute("DELETE FROM members WHERE id = ?1", [id])?;
         if affected == 0 {
             return Err(AppError::NotFound(format!("member '{id}'")));

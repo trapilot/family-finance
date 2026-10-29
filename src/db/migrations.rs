@@ -30,6 +30,10 @@ pub fn run(conn: &Connection) -> Result<()> {
         migrate_v7(conn)?;
         set_version(conn, 7)?;
     }
+    if version < 8 {
+        migrate_v8(conn)?;
+        set_version(conn, 8)?;
+    }
     Ok(())
 }
 
@@ -222,5 +226,19 @@ fn migrate_v7(conn: &Connection) -> Result<()> {
         ALTER TABLE reminders ADD COLUMN is_paused INTEGER NOT NULL DEFAULT 0;
 
         INSERT OR IGNORE INTO settings (key, value) VALUES ('reminder_start_time', '08:00');
+    ")
+}
+
+// ─── V8 — CCCD photos (front / back), one JPEG per side ────────
+
+fn migrate_v8(conn: &Connection) -> Result<()> {
+    conn.execute_batch("
+        CREATE TABLE IF NOT EXISTS member_id_images (
+            member_id  TEXT NOT NULL REFERENCES members(id),
+            side       TEXT NOT NULL,                -- 'front' / 'back'
+            jpeg       BLOB NOT NULL,
+            updated_at INTEGER NOT NULL,
+            PRIMARY KEY (member_id, side)
+        );
     ")
 }

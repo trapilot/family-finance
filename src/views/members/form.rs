@@ -4,8 +4,9 @@ use crate::i18n::use_i18n;
 use crate::app::AppState;
 use crate::models::{Family, Member, NewMember};
 use crate::models::member::{Gender, MemberRole};
-use crate::repository::{FamilyRepo, MemberRepo};
+use crate::repository::{FamilyRepo, IdCardRepo, MemberRepo};
 use crate::views::date_str_to_ts;
+use super::id_cards::{save_photos, IdPhotoFields};
 use super::MemberView;
 
 const AVATAR_PRESETS: &[&str] = &[
@@ -33,6 +34,8 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
     let mut id_issue_place = use_signal(|| editing.as_ref().and_then(|m| m.id_issue_place.clone()).unwrap_or_default());
     let mut note           = use_signal(|| editing.as_ref().and_then(|m| m.note.clone()).unwrap_or_default());
     let mut show_id        = use_signal(|| false);
+    let id_front           = use_signal(|| load_photo(&state, editing.as_ref(), crate::models::IdSide::Front));
+    let id_back            = use_signal(|| load_photo(&state, editing.as_ref(), crate::models::IdSide::Back));
     let error_msg          = use_signal(|| String::new());
 
     let title = if editing.is_some() { t.t("Edit Member") } else { t.t("New Member") };
@@ -90,9 +93,11 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
                     updated.role           = input.role.clone();
                     updated.avatar_emoji   = input.avatar_emoji.clone();
                     updated.note           = input.note.clone();
-                    MemberRepo::update(conn, &updated)
+                    MemberRepo::update(conn, &updated)?;
+                    save_photos(conn, &updated.id, id_front.read().as_deref(), id_back.read().as_deref())
                 } else {
-                    MemberRepo::create(conn, &input).map(|_| ())
+                    let created = MemberRepo::create(conn, &input)?;
+                    save_photos(conn, &created.id, id_front.read().as_deref(), id_back.read().as_deref())
                 }
             });
 
@@ -285,6 +290,8 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
                     }
                     Label { text: t.t("Issue Place") }
                     TextInput { value: id_issue_place.read().clone(), placeholder: "", on_input: move |v| { id_issue_place.set(v); } }
+                    Label { text: t.t("ID Card Photos") }
+                    IdPhotoFields { front: id_front, back: id_back }
                 }
             }
 
@@ -310,6 +317,11 @@ pub fn MemberForm(view: Signal<MemberView>, editing: Option<Member>) -> Element 
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+fn load_photo(state: &AppState, editing: Option<&Member>, side: crate::models::IdSide) -> Option<Vec<u8>> {
+    let member = editing?;
+    state.with_conn(|conn| IdCardRepo::get(conn, &member.id, side).ok().flatten())
+}
 
 fn date_from_ts(ts: Option<i64>) -> String {
     ts.and_then(|t| {

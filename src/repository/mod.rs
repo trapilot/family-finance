@@ -1,6 +1,7 @@
 pub mod category_repo;
 pub mod family_repo;
 pub mod holding_repo;
+pub mod id_card_repo;
 pub mod member_repo;
 pub mod rate_repo;
 pub mod reminder_repo;
@@ -11,6 +12,7 @@ pub mod settings_repo;
 pub use category_repo::CategoryRepo;
 pub use family_repo::FamilyRepo;
 pub use holding_repo::HoldingRepo;
+pub use id_card_repo::IdCardRepo;
 pub use member_repo::MemberRepo;
 pub use rate_repo::RateRepo;
 pub use reminder_repo::ReminderRepo;

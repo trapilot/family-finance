@@ -3,6 +3,7 @@ pub mod form;
 pub mod list;
 pub mod family_form;
 pub mod family_detail;
+pub mod id_cards;
 
 use dioxus::prelude::*;
 use crate::models::{Family, Member};
@@ -11,6 +12,7 @@ use detail::MemberDetail;
 use form::MemberForm;
 use family_form::FamilyForm;
 use family_detail::FamilyDetail;
+use id_cards::IdCardsPdf;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum MemberView {
@@ -21,6 +23,7 @@ pub enum MemberView {
     AddFamily,
     EditFamily(Family),
     FamilyDetail(Family),
+    IdCardsPdf,
 }
 
 #[component]
@@ -36,5 +39,6 @@ pub fn Members() -> Element {
         MemberView::AddFamily     => rsx! { FamilyForm { view, editing: None } },
         MemberView::EditFamily(family) => rsx! { FamilyForm { view, editing: Some(family) } },
         MemberView::FamilyDetail(family) => rsx! { FamilyDetail { view, family } },
+        MemberView::IdCardsPdf    => rsx! { IdCardsPdf { view } },
     }
 }

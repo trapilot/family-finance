@@ -56,6 +56,7 @@ fn format_thousands(n: i64) -> String {
 // ─── AmountInput ──────────────────────────────────────────────────────────────
 
 /// Keep only digits and the first `.` — the raw value that `Decimal::from_str` parses.
+/// Leading zeros are dropped, so typing "5" into a field showing "0" gives "5", not "05".
 fn sanitize_amount(s: &str) -> String {
     let mut out = String::new();
     let mut has_dot = false;
@@ -67,7 +68,14 @@ fn sanitize_amount(s: &str) -> String {
             out.push(c);
         }
     }
-    out
+    let trimmed = out.trim_start_matches('0');
+    if trimmed.is_empty() && !out.is_empty() {
+        "0".to_string()
+    } else if trimmed.starts_with('.') {
+        format!("0{trimmed}")
+    } else {
+        trimmed.to_string()
+    }
 }
 
 /// Raw "1500000.5" → display "1,500,000.5"
@@ -169,4 +177,22 @@ pub fn date_str_to_ts(s: &str) -> Option<i64> {
     use chrono::{Local, NaiveDate, TimeZone};
     let d = NaiveDate::parse_from_str(s, "%Y-%m-%d").ok()?;
     Some(Local.from_local_datetime(&d.and_hms_opt(12, 0, 0)?).single()?.timestamp())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_amount;
+
+    #[test]
+    fn sanitize_amount_drops_leading_zeros() {
+        assert_eq!(sanitize_amount("05"), "5");
+        assert_eq!(sanitize_amount("0,500"), "500");
+        assert_eq!(sanitize_amount("0"), "0");
+        assert_eq!(sanitize_amount("00"), "0");
+        assert_eq!(sanitize_amount("0.5"), "0.5");
+        assert_eq!(sanitize_amount("00.5"), "0.5");
+        assert_eq!(sanitize_amount(".5"), "0.5");
+        assert_eq!(sanitize_amount("1,500,000"), "1500000");
+        assert_eq!(sanitize_amount(""), "");
+    }
 }

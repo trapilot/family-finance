@@ -439,7 +439,8 @@ fn vi(en: &str) -> Option<&'static str> {
         "Entertainment"                        => "Giải trí",
         "Education"                            => "Giáo dục",
         "Bills"                                => "Hoá đơn",
-        "Personal Care"                        => "Chăm sóc cá nhân",
+        "Cosmetics"                            => "Mỹ phẩm",
+        "Household Goods"                      => "Đồ gia dụng",
         "Travel"                               => "Du lịch",
         _ => return None,
     })

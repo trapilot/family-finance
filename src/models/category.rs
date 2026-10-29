@@ -60,8 +60,9 @@ pub fn default_categories() -> Vec<NewCategory> {
         NewCategory { name: "Entertainment".into(),      icon: Some("🎮".into()), color: Some("#FFEAA7".into()), budget_amount: None, parent_id: None, sort_order: 5  },
         NewCategory { name: "Education".into(),          icon: Some("📚".into()), color: Some("#DDA0DD".into()), budget_amount: None, parent_id: None, sort_order: 6  },
         NewCategory { name: "Bills".into(),              icon: Some("🏠".into()), color: Some("#F0E68C".into()), budget_amount: None, parent_id: None, sort_order: 7  },
-        NewCategory { name: "Personal Care".into(),      icon: Some("💆".into()), color: Some("#FFB6C1".into()), budget_amount: None, parent_id: None, sort_order: 8  },
-        NewCategory { name: "Travel".into(),             icon: Some("✈️".into()), color: Some("#87CEEB".into()), budget_amount: None, parent_id: None, sort_order: 9  },
-        NewCategory { name: "Other".into(),              icon: Some("📦".into()), color: Some("#D3D3D3".into()), budget_amount: None, parent_id: None, sort_order: 10 },
+        NewCategory { name: "Cosmetics".into(),          icon: Some("💄".into()), color: Some("#FFB6C1".into()), budget_amount: None, parent_id: None, sort_order: 8  },
+        NewCategory { name: "Household Goods".into(),    icon: Some("🧺".into()), color: Some("#C3B091".into()), budget_amount: None, parent_id: None, sort_order: 9  },
+        NewCategory { name: "Travel".into(),             icon: Some("✈️".into()), color: Some("#87CEEB".into()), budget_amount: None, parent_id: None, sort_order: 10 },
+        NewCategory { name: "Other".into(),              icon: Some("📦".into()), color: Some("#D3D3D3".into()), budget_amount: None, parent_id: None, sort_order: 11 },
     ]
 }

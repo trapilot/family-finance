@@ -18,7 +18,17 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
     let mut name        = use_signal(|| editing.as_ref().map(|w| w.name.clone()).unwrap_or_default());
     let mut wallet_type = use_signal(|| editing.as_ref().map(|w| w.wallet_type.clone()).unwrap_or(WalletType::Bank));
     let mut currency    = use_signal(|| editing.as_ref().map(|w| w.currency.clone()).unwrap_or(Currency::VND));
-    let mut balance_str = use_signal(|| editing.as_ref().map(|w| format!("{}", w.balance)).unwrap_or_else(|| "0".into()));
+    // Opening balance: the wallet's "Opening Balance" transaction (editable later, 0 allowed)
+    let mut balance_str = use_signal({
+        let state = state.clone();
+        let editing = editing.clone();
+        move || {
+            editing.as_ref()
+                .and_then(|w| state.with_conn(|conn| TransactionService::find_opening_balance(conn, &w.id).ok().flatten()))
+                .map(|t| t.amount.normalize().to_string())
+                .unwrap_or_else(|| "0".into())
+        }
+    });
     let mut broker      = use_signal(|| editing.as_ref().and_then(|w| w.broker.clone()).unwrap_or_default());
     let mut icon        = use_signal(|| editing.as_ref().and_then(|w| w.icon.clone()).unwrap_or_default());
     let error_msg   = use_signal(|| String::new());
@@ -42,9 +52,13 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
                 error_msg.set(t.t("Name is required").into());
                 return;
             }
-            let balance = match Decimal::from_str(&balance_str.read()) {
-                Ok(b) => b,
-                Err(_) => { error_msg.set(t.t("Invalid balance").into()); return; }
+            // Empty field = 0
+            let balance = match balance_str.read().as_str() {
+                "" => Decimal::ZERO,
+                s  => match Decimal::from_str(s) {
+                    Ok(b) => b,
+                    Err(_) => { error_msg.set(t.t("Invalid balance").into()); return; }
+                },
             };
             let broker_opt = {
                 let b = broker.read();
@@ -63,7 +77,8 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
                     updated.currency    = currency.read().clone();
                     updated.broker      = broker_opt.clone();
                     updated.icon        = icon_opt.clone();
-                    WalletRepo::update(conn, &updated)
+                    WalletRepo::update(conn, &updated)?;
+                    TransactionService::set_opening_balance(conn, &updated.id, balance, updated.currency.clone(), t.t("Opening Balance"))
                 } else {
                     // The balance only ever moves through transactions, so the opening amount
                     // is recorded as an "Opening Balance" transaction on a wallet created at 0.
@@ -77,11 +92,10 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
                         color: None,
                         sort_order: 0,
                     })?;
-                    if balance > Decimal::ZERO {
-                        let mut opening = NewTransaction::opening_balance(&wallet.id, balance, wallet.currency.clone(), now_ts());
-                        opening.note = Some(t.t("Opening Balance").to_string());
-                        TransactionService::execute(conn, &opening)?;
-                    }
+                    // Recorded even when 0, so it can be changed later from Edit Wallet
+                    let mut opening = NewTransaction::opening_balance(&wallet.id, balance, wallet.currency.clone(), now_ts());
+                    opening.note = Some(t.t("Opening Balance").to_string());
+                    TransactionService::execute(conn, &opening)?;
                     Ok(())
                 }
             });
@@ -163,13 +177,11 @@ pub fn WalletForm(view: Signal<WalletView>, editing: Option<Wallet>) -> Element 
                 }
             }
 
-            // ── Initial balance (only for new) ──
-            if editing.is_none() {
-                FieldLabel { label: t.t("Opening Balance") }
-                AmountInput {
-                    value: balance_str.read().clone(),
-                    oninput: move |v| balance_str.set(v),
-                }
+            // ── Opening balance (new and edit) ──
+            FieldLabel { label: t.t("Opening Balance") }
+            AmountInput {
+                value: balance_str.read().clone(),
+                oninput: move |v| balance_str.set(v),
             }
 
             // ── Broker (investment only) ──

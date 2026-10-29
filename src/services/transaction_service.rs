@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 
 use crate::error::{AppError, Result};
 use crate::models::{
-    decimal_to_f64, f64_to_decimal,
+    decimal_to_f64, f64_to_decimal, Currency,
     transaction::{NewTransaction, Transaction, TransactionType},
 };
 use crate::repository::{HoldingRepo, TransactionRepo, WalletRepo};
@@ -41,6 +41,44 @@ impl TransactionService {
             TransactionType::InvestBuy => Self::process_invest_buy(conn, input),
             TransactionType::InvestSell => Self::process_invest_sell(conn, input),
         }
+    }
+
+    /// The wallet's opening-balance record (the earliest one), if any
+    pub fn find_opening_balance(conn: &Connection, wallet_id: &str) -> Result<Option<Transaction>> {
+        let mut found = TransactionRepo::list(conn, &crate::repository::transaction_repo::TxnFilter {
+            wallet_id: Some(wallet_id.to_string()),
+            txn_type:  Some(TransactionType::OpeningBalance),
+            ..Default::default()
+        })?;
+        found.sort_by_key(|t| (t.txn_date, t.created_at));
+        Ok(found.into_iter().next())
+    }
+
+    /// Set the wallet's opening balance (0 allowed): replaces the existing record, keeping its
+    /// date and note, so the wallet balance moves by the difference; creates one if missing.
+    pub fn set_opening_balance(
+        conn: &Connection,
+        wallet_id: &str,
+        amount: Decimal,
+        currency: Currency,
+        default_note: &str,
+    ) -> Result<()> {
+        let existing = Self::find_opening_balance(conn, wallet_id)?;
+        if existing.as_ref().is_some_and(|t| t.amount == amount && t.currency == currency) {
+            return Ok(());
+        }
+        let (date, note) = match &existing {
+            Some(old) => (old.txn_date, old.note.clone()),
+            None      => (crate::views::now_ts(), Some(default_note.to_string())),
+        };
+        let mut opening = NewTransaction::opening_balance(wallet_id, amount, currency, date);
+        opening.note = note;
+        Self::validate(conn, &opening)?;
+        if let Some(old) = existing {
+            Self::delete(conn, &old.id)?;
+        }
+        Self::execute(conn, &opening)?;
+        Ok(())
     }
 
     // ─── Income ───────────────────────────────────────────────────────────────
@@ -200,7 +238,9 @@ impl TransactionService {
     // ─── Validation ──────────────────────────────────────────────────────────
 
     fn validate(conn: &Connection, input: &NewTransaction) -> Result<()> {
-        if input.amount <= Decimal::ZERO {
+        // A wallet may start empty, so only its opening balance can be 0
+        let zero_ok = input.txn_type == TransactionType::OpeningBalance;
+        if input.amount < Decimal::ZERO || (input.amount.is_zero() && !zero_ok) {
             return Err(AppError::Validation("Amount must be greater than zero".into()));
         }
 
@@ -260,5 +300,55 @@ impl TransactionService {
             return Err(AppError::InsufficientBalance(wallet_id.to_string()));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{NewWallet, WalletType};
+    use crate::repository::CategoryRepo;
+
+    #[test]
+    fn opening_balance_can_be_zero_and_edited_later() {
+        let conn = Connection::open_in_memory().unwrap();
+        crate::db::migrations::run(&conn).unwrap();
+        CategoryRepo::seed_defaults(&conn).unwrap();
+        let wallet = WalletRepo::create(&conn, &NewWallet {
+            name: "Cash".into(), wallet_type: WalletType::Cash, currency: Currency::VND,
+            balance: Decimal::ZERO, broker: None, icon: None, color: None, sort_order: 0,
+        }).unwrap();
+        let balance = || WalletRepo::find_by_id(&conn, &wallet.id).unwrap().unwrap().balance;
+
+        // Created with 0: the record still exists
+        let mut opening = NewTransaction::opening_balance(&wallet.id, Decimal::ZERO, Currency::VND, 1_000);
+        opening.note = Some("Opening Balance".into());
+        TransactionService::execute(&conn, &opening).unwrap();
+        let first = TransactionService::find_opening_balance(&conn, &wallet.id).unwrap().unwrap();
+        assert_eq!((first.amount, balance()), (Decimal::ZERO, Decimal::ZERO));
+
+        // Raised later; date and note kept, still one record
+        TransactionService::set_opening_balance(&conn, &wallet.id, Decimal::from(5_000_000), Currency::VND, "x").unwrap();
+        assert_eq!(balance(), Decimal::from(5_000_000));
+
+        // Spending is kept when the opening balance changes again
+        let category = CategoryRepo::list(&conn).unwrap()[0].id.clone();
+        TransactionService::execute(&conn, &NewTransaction::expense(&wallet.id, Decimal::from(1_000_000), Currency::VND, &category, 2_000)).unwrap();
+        TransactionService::set_opening_balance(&conn, &wallet.id, Decimal::from(3_000_000), Currency::VND, "x").unwrap();
+        assert_eq!(balance(), Decimal::from(2_000_000));
+
+        let all = TransactionRepo::list(&conn, &crate::repository::transaction_repo::TxnFilter {
+            txn_type: Some(TransactionType::OpeningBalance), ..Default::default()
+        }).unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!((all[0].txn_date, all[0].note.as_deref()), (1_000, Some("Opening Balance")));
+
+        // Same value again: nothing changes
+        TransactionService::set_opening_balance(&conn, &wallet.id, Decimal::from(3_000_000), Currency::VND, "x").unwrap();
+        assert_eq!(TransactionService::find_opening_balance(&conn, &wallet.id).unwrap().unwrap().id, all[0].id);
+
+        // Other types still need more than 0
+        let zero_expense = NewTransaction::expense(&wallet.id, Decimal::ZERO, Currency::VND, &category, 3_000);
+        assert!(TransactionService::execute(&conn, &zero_expense).is_err());
     }
 }
